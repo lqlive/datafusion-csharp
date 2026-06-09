@@ -3,15 +3,15 @@
     <Project Path="src\Apache.DataFusion\Apache.DataFusion.csproj" />
   </Folder>
   <Folder Name="/examples/">
-    <Project Path="examples\DataFusion.Sample.Sql\DataFusion.Sample.Sql.csproj" />
-    <Project Path="examples\DataFusion.Sample.DataFrame\DataFusion.Sample.DataFrame.csproj" />
-    <Project Path="examples\DataFusion.Sample.Join\DataFusion.Sample.Join.csproj" />
-    <Project Path="examples\DataFusion.Sample.SetOperations\DataFusion.Sample.SetOperations.csproj" />
-    <Project Path="examples\DataFusion.Sample.Aggregate\DataFusion.Sample.Aggregate.csproj" />
-    <Project Path="examples\DataFusion.Sample.ScalarUdf\DataFusion.Sample.ScalarUdf.csproj" />
-    <Project Path="examples\DataFusion.Sample.TableProvider\DataFusion.Sample.TableProvider.csproj" />
-    <Project Path="examples\DataFusion.Sample.Streaming\DataFusion.Sample.Streaming.csproj" />
-    <Project Path="examples\DataFusion.Sample.SessionConfig\DataFusion.Sample.SessionConfig.csproj" />
+    <Project Path="examples\Apache.DataFusion.Sample.Sql\Apache.DataFusion.Sample.Sql.csproj" />
+    <Project Path="examples\Apache.DataFusion.Sample.DataFrame\Apache.DataFusion.Sample.DataFrame.csproj" />
+    <Project Path="examples\Apache.DataFusion.Sample.Join\Apache.DataFusion.Sample.Join.csproj" />
+    <Project Path="examples\Apache.DataFusion.Sample.SetOperations\Apache.DataFusion.Sample.SetOperations.csproj" />
+    <Project Path="examples\Apache.DataFusion.Sample.Aggregate\Apache.DataFusion.Sample.Aggregate.csproj" />
+    <Project Path="examples\Apache.DataFusion.Sample.ScalarUdf\Apache.DataFusion.Sample.ScalarUdf.csproj" />
+    <Project Path="examples\Apache.DataFusion.Sample.TableProvider\Apache.DataFusion.Sample.TableProvider.csproj" />
+    <Project Path="examples\Apache.DataFusion.Sample.Streaming\Apache.DataFusion.Sample.Streaming.csproj" />
+    <Project Path="examples\Apache.DataFusion.Sample.SessionConfig\Apache.DataFusion.Sample.SessionConfig.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests\Apache.DataFusion.Tests\Apache.DataFusion.Tests.csproj" />
