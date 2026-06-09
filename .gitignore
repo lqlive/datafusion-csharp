@@ -1,0 +1,14 @@
+bin/
+obj/
+target/
+.vs/
+.vscode/
+.idea/
+node_modules/
+dist/
+*.user
+*.suo
+*.rsuser
+.env
+.env.*
+!.env.example

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <IncludeBuildOutput>false</IncludeBuildOutput>
+    <SuppressDependenciesWhenPacking>true</SuppressDependenciesWhenPacking>
+    <NoWarn>$(NoWarn);NU5128</NoWarn>
+    <PackageId>Apache.DataFusion.Native.win-x64</PackageId>
+    <Authors>Apache DataFusion</Authors>
+    <Description>Windows x64 native binaries for Apache.DataFusion.</Description>
+    <PackageTags>datafusion;native;win-x64</PackageTags>
+    <RepositoryUrl>https://github.com/apache/datafusion</RepositoryUrl>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\native\target\release\datafusion_csharp_native.dll"
+          Pack="true"
+          PackagePath="runtimes\win-x64\native\datafusion_csharp_native.dll"
+          Visible="false" />
+  </ItemGroup>
+
+</Project>
