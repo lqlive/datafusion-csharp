@@ -34,7 +34,26 @@ and result sets cross as Apache Arrow IPC byte streams.
   (pinned to `9.0.301` in `global.json`). The libraries still target `net8.0`.
 - **Rust toolchain** (stable) &mdash; to build the native `cdylib`.
 
+## Install
+
+Published on NuGet as a managed package plus RID-specific native runtime packages.
+Install the managed package and the native package matching your platform:
+
+```powershell
+dotnet add package Apache.DataFusion
+dotnet add package Apache.DataFusion.Native.win-x64
+```
+
+Source and issues: [github.com/lqlive/datafusion-csharp](https://github.com/lqlive/datafusion-csharp).
+
 ## Build
+
+Clone the repository:
+
+```powershell
+git clone https://github.com/lqlive/datafusion-csharp.git
+cd datafusion-csharp
+```
 
 Build the native library first:
 

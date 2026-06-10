@@ -1,5 +1,13 @@
 <Project>
   <PropertyGroup>
+    <Version>0.1.1</Version>
+    <Authors>Apache DataFusion</Authors>
+    <Company>Apache Software Foundation</Company>
+    <Product>Apache DataFusion C# SDK</Product>
+    <Copyright>Copyright © The Apache Software Foundation</Copyright>
+    <RepositoryUrl>https://github.com/lqlive/datafusion-csharp</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/lqlive/datafusion-csharp</PackageProjectUrl>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
     <LangVersion>latest</LangVersion>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>

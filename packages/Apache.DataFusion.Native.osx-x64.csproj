@@ -9,7 +9,7 @@
     <Authors>Apache DataFusion</Authors>
     <Description>macOS x64 native binaries for Apache.DataFusion.</Description>
     <PackageTags>datafusion;native;osx-x64</PackageTags>
-    <RepositoryUrl>https://github.com/apache/datafusion</RepositoryUrl>
+    <RepositoryUrl>https://github.com/lqlive/datafusion-csharp</RepositoryUrl>
     <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
   </PropertyGroup>
 

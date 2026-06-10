@@ -6,6 +6,20 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <PackageId>Apache.DataFusion</PackageId>
+    <Title>Apache DataFusion C# SDK</Title>
+    <Description>Managed C# bindings for the Apache DataFusion in-process query engine. Install a matching Apache.DataFusion.Native.&lt;rid&gt; package for the platform-specific native runtime.</Description>
+    <PackageTags>datafusion;sql;arrow;query-engine;olap;analytics</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Apache.Arrow" Version="23.0.0" />
     <PackageReference Include="Google.Protobuf" Version="3.35.0" />
