@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+using System.Reflection;
 using System.Runtime.InteropServices;
 
 namespace Apache.DataFusion;
@@ -23,43 +24,54 @@ public static class NativeLibraryLoader
 {
     private const string LibraryName = "datafusion_csharp_native";
     private static readonly object SyncRoot = new();
-    private static bool loaded;
+    private static bool registered;
 
     public static void Load()
     {
-        if (loaded)
+        if (registered)
         {
             return;
         }
 
         lock (SyncRoot)
         {
-            if (loaded)
+            if (registered)
             {
                 return;
             }
 
-            foreach (string candidate in CandidatePaths())
-            {
-                if (File.Exists(candidate) && NativeLibrary.TryLoad(candidate, out _))
-                {
-                    loaded = true;
-                    return;
-                }
-            }
-
-            // Fall back to the default resolver so the runtime can probe the
-            // assembly's native asset locations (runtimes/{rid}/native, deps.json).
-            if (NativeLibrary.TryLoad(LibraryName, typeof(NativeLibraryLoader).Assembly, DllImportSearchPath.SafeDirectories, out _))
-            {
-                loaded = true;
-                return;
-            }
-
-            throw new DllNotFoundException(
-                $"Unable to load {LibraryName}. Build it with `cargo build` in the native directory, " +
-                "or install the matching Apache.DataFusion.Native.<rid> package.");
+            // A resolver (rather than a bare NativeLibrary.Load by path) is required so
+            // that the imported library name maps to the file we found. On Linux/macOS a
+            // path-based pre-load does not satisfy a later P/Invoke by name the way it does
+            // on Windows.
+            NativeLibrary.SetDllImportResolver(typeof(NativeLibraryLoader).Assembly, Resolve);
+            registered = true;
         }
+    }
+
+    private static IntPtr Resolve(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
+    {
+        if (libraryName != LibraryName)
+        {
+            return IntPtr.Zero;
+        }
+
+        foreach (string candidate in CandidatePaths())
+        {
+            if (File.Exists(candidate) && NativeLibrary.TryLoad(candidate, out IntPtr handle))
+            {
+                return handle;
+            }
+        }
+
+        // Fall back to the default search so the runtime can probe the assembly's native
+        // asset locations (runtimes/{rid}/native via deps.json, then system paths).
+        if (NativeLibrary.TryLoad(libraryName, assembly, searchPath ?? DllImportSearchPath.SafeDirectories, out IntPtr fallback))
+        {
+            return fallback;
+        }
+
+        return IntPtr.Zero;
     }
 
     private static IEnumerable<string> CandidatePaths()
@@ -67,17 +79,14 @@ public static class NativeLibraryLoader
         string baseDirectory = AppContext.BaseDirectory;
         string fileName = NativeLibraryFileName();
 
+        // The native binary is copied next to the managed assembly: by the build for local
+        // development (see Apache.DataFusion.csproj) and by the matching
+        // Apache.DataFusion.Native.<rid> package under runtimes/{rid}/native for consumers.
         yield return Path.Combine(baseDirectory, fileName);
 
         foreach (string rid in RuntimeIdentifiers())
         {
             yield return Path.Combine(baseDirectory, "runtimes", rid, "native", fileName);
-        }
-
-        for (DirectoryInfo? current = new(baseDirectory); current is not null; current = current.Parent)
-        {
-            yield return Path.Combine(current.FullName, "native", "target", "debug", fileName);
-            yield return Path.Combine(current.FullName, "native", "target", "release", fileName);
         }
     }
 

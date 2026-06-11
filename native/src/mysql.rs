@@ -26,8 +26,7 @@ use std::{collections::HashMap, sync::Arc};
 use datafusion::sql::TableReference;
 #[cfg(feature = "mysql")]
 use datafusion_table_providers::{
-    mysql::MySQLTableFactory,
-    sql::db_connection_pool::mysqlpool::MySQLConnectionPool,
+    mysql::MySQLTableFactory, sql::db_connection_pool::mysqlpool::MySQLConnectionPool,
     util::secrets::to_secret_map,
 };
 

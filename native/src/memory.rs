@@ -55,7 +55,9 @@ impl TrackingMemoryPool {
     }
 
     fn record_shrink(&self, shrink: usize) {
-        let prev = self.current_bytes.fetch_sub(shrink as u64, Ordering::Relaxed);
+        let prev = self
+            .current_bytes
+            .fetch_sub(shrink as u64, Ordering::Relaxed);
         if prev < shrink as u64 {
             self.current_bytes.store(0, Ordering::Relaxed);
         }

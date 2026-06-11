@@ -25,8 +25,7 @@ use datafusion::logical_expr::{create_udf, ColumnarValue, Volatility};
 
 use crate::{cstr, require_ptr, take_result, OK};
 
-type DfScalarI64Callback =
-    extern "C" fn(user_data: *mut c_void, out_value: *mut i64) -> c_int;
+type DfScalarI64Callback = extern "C" fn(user_data: *mut c_void, out_value: *mut i64) -> c_int;
 
 #[no_mangle]
 pub extern "C" fn df_session_context_register_scalar_udf_i64(

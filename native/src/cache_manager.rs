@@ -47,7 +47,10 @@ pub(crate) fn build_config(
 
     if let Some(lfc) = &opts.list_files_cache {
         let default_limit = CacheManagerConfig::default().list_files_cache_limit;
-        let max = lfc.max_bytes.map(|value| value as usize).unwrap_or(default_limit);
+        let max = lfc
+            .max_bytes
+            .map(|value| value as usize)
+            .unwrap_or(default_limit);
         let ttl = lfc.ttl_millis.map(Duration::from_millis);
 
         config.list_files_cache = Some(Arc::new(DefaultListFilesCache::new(max, ttl)));

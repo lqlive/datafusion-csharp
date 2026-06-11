@@ -20,6 +20,28 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
+  <!-- For local development, copy the cargo-built native binary next to the managed
+       assembly (flows to referencing test/example projects too) so it loads from the
+       output directory. Never packed - consumers get the binary from the per-RID native
+       packages instead. Only the current OS/profile file exists, so the others no-op. -->
+  <PropertyGroup>
+    <_CargoProfile>debug</_CargoProfile>
+    <_CargoProfile Condition="'$(Configuration)' == 'Release'">release</_CargoProfile>
+    <_NativeTargetDir>$(MSBuildThisFileDirectory)..\..\native\target\$(_CargoProfile)\</_NativeTargetDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="$(_NativeTargetDir)datafusion_csharp_native.dll"
+          Condition="Exists('$(_NativeTargetDir)datafusion_csharp_native.dll')"
+          Link="datafusion_csharp_native.dll" CopyToOutputDirectory="PreserveNewest" Pack="false" Visible="false" />
+    <None Include="$(_NativeTargetDir)libdatafusion_csharp_native.so"
+          Condition="Exists('$(_NativeTargetDir)libdatafusion_csharp_native.so')"
+          Link="libdatafusion_csharp_native.so" CopyToOutputDirectory="PreserveNewest" Pack="false" Visible="false" />
+    <None Include="$(_NativeTargetDir)libdatafusion_csharp_native.dylib"
+          Condition="Exists('$(_NativeTargetDir)libdatafusion_csharp_native.dylib')"
+          Link="libdatafusion_csharp_native.dylib" CopyToOutputDirectory="PreserveNewest" Pack="false" Visible="false" />
+  </ItemGroup>
+
   <!-- Native runtime packages flow through as NuGet dependencies so consumers get the
        platform-specific binary automatically (no RID required at restore). Referenced as
        projects (not packages) so the repo builds without a private feed; the marker

@@ -53,7 +53,15 @@ pub extern "C" fn df_session_context_register_clickhouse_table(
         let password = optional_cstr(password)?;
         let table_name = cstr(table_name, "table_name")?;
 
-        register_clickhouse_table(ctx, registration_name, url, database, user, password, table_name)
+        register_clickhouse_table(
+            ctx,
+            registration_name,
+            url,
+            database,
+            user,
+            password,
+            table_name,
+        )
     })
 }
 

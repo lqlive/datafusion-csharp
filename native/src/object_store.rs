@@ -24,12 +24,12 @@ use crate::proto_gen::object_store_registration::Backend;
 use crate::proto_gen::ObjectStoreRegistration;
 use crate::NativeResult;
 
-#[cfg(feature = "object-store-aws")]
-use crate::proto_gen::S3Options;
 #[cfg(feature = "object-store-gcp")]
 use crate::proto_gen::GcsOptions;
 #[cfg(feature = "object-store-http")]
 use crate::proto_gen::HttpOptions;
+#[cfg(feature = "object-store-aws")]
+use crate::proto_gen::S3Options;
 
 pub(crate) fn apply_registrations(
     ctx: &SessionContext,
@@ -55,9 +55,7 @@ fn build_store(
         #[cfg(feature = "object-store-aws")]
         Backend::S3(opts) => build_s3(url_override, opts),
         #[cfg(not(feature = "object-store-aws"))]
-        Backend::S3(_) => {
-            Err("object-store-aws Cargo feature is not enabled in this build".into())
-        }
+        Backend::S3(_) => Err("object-store-aws Cargo feature is not enabled in this build".into()),
 
         #[cfg(feature = "object-store-gcp")]
         Backend::Gcs(opts) => build_gcs(url_override, opts),
@@ -150,7 +148,10 @@ fn build_gcs(
         return Err("GcsOptions.bucket is required".into());
     }
     if opts.service_account_key.is_some() && opts.service_account_path.is_some() {
-        return Err("GcsOptions: service_account_key and service_account_path are mutually exclusive".into());
+        return Err(
+            "GcsOptions: service_account_key and service_account_path are mutually exclusive"
+                .into(),
+        );
     }
 
     let java_has_credential = opts.service_account_key.is_some()
@@ -217,7 +218,8 @@ fn build_http(
 
     let mut builder = HttpBuilder::new().with_url(listing);
     if let Some(value) = opts.allow_http {
-        builder = builder.with_client_options(object_store::ClientOptions::new().with_allow_http(value));
+        builder =
+            builder.with_client_options(object_store::ClientOptions::new().with_allow_http(value));
     }
 
     let store = builder.build()?;

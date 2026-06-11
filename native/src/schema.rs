@@ -44,10 +44,7 @@ pub(crate) fn decode_optional_schema(
     Ok(Some((*reader.schema()).clone()))
 }
 
-pub(crate) fn batches_ipc(
-    schema: SchemaRef,
-    batches: Vec<RecordBatch>,
-) -> NativeResult<Vec<u8>> {
+pub(crate) fn batches_ipc(schema: SchemaRef, batches: Vec<RecordBatch>) -> NativeResult<Vec<u8>> {
     let mut buf = Vec::new();
     let iter = RecordBatchIterator::new(batches.into_iter().map(Ok), schema.clone());
     let mut writer = StreamWriter::try_new(&mut buf, schema.as_ref())?;
@@ -58,9 +55,7 @@ pub(crate) fn batches_ipc(
     Ok(buf)
 }
 
-pub(crate) fn read_ipc_batches(
-    ipc: &[u8],
-) -> NativeResult<(SchemaRef, Vec<RecordBatch>)> {
+pub(crate) fn read_ipc_batches(ipc: &[u8]) -> NativeResult<(SchemaRef, Vec<RecordBatch>)> {
     let reader = StreamReader::try_new(std::io::Cursor::new(ipc), None)?;
     let schema = reader.schema();
     let batches = reader.collect::<Result<Vec<_>, ArrowError>>()?;

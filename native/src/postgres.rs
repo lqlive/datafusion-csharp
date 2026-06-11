@@ -26,8 +26,7 @@ use std::{collections::HashMap, sync::Arc};
 use datafusion::sql::TableReference;
 #[cfg(feature = "postgres")]
 use datafusion_table_providers::{
-    postgres::PostgresTableFactory,
-    sql::db_connection_pool::postgrespool::PostgresConnectionPool,
+    postgres::PostgresTableFactory, sql::db_connection_pool::postgrespool::PostgresConnectionPool,
     util::secrets::to_secret_map,
 };
 
@@ -76,9 +75,7 @@ fn register_postgres_table(
     table_name: String,
 ) -> crate::NativeResult<()> {
     let table_reference = match schema_name {
-        Some(schema) if !schema.is_empty() => {
-            TableReference::partial(schema, table_name)
-        }
+        Some(schema) if !schema.is_empty() => TableReference::partial(schema, table_name),
         _ => TableReference::bare(table_name),
     };
 

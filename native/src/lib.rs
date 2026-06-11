@@ -40,39 +40,39 @@ use futures::StreamExt;
 use prost::Message;
 use tokio::runtime::Runtime;
 
-mod memory;
-mod runtime_metrics;
-mod cache_manager;
-mod object_store;
-mod schema;
-mod table_provider;
-mod udf;
-mod proto;
-mod parquet;
-mod csv;
-mod json;
 mod arrow;
 mod avro;
-mod postgres;
-mod mysql;
-mod mongodb;
+mod cache_manager;
 mod clickhouse;
+mod csv;
+mod json;
+mod memory;
+mod mongodb;
+mod mysql;
+mod object_store;
+mod parquet;
+mod postgres;
+mod proto;
+mod runtime_metrics;
+mod schema;
 mod sqlite;
+mod table_provider;
+mod udf;
 
 mod proto_gen {
     include!(concat!(env!("OUT_DIR"), "/datafusion.rs"));
 }
 
-use proto_gen::{
-    CsvWriteOptionsProto, FileCompressionType as ProtoCompression, JsonWriteOptionsProto,
-    SessionOptions,
-};
-use schema::{batches_ipc, schema_ipc};
 use crate::arrow::arrow_options;
 use crate::avro::avro_options;
 use crate::csv::csv_options;
 use crate::json::json_options;
 use crate::parquet::parquet_options;
+use proto_gen::{
+    CsvWriteOptionsProto, FileCompressionType as ProtoCompression, JsonWriteOptionsProto,
+    SessionOptions,
+};
+use schema::{batches_ipc, schema_ipc};
 
 pub(crate) type NativeResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
 
@@ -119,9 +119,7 @@ pub(crate) fn runtime() -> &'static Runtime {
     })
 }
 
-fn install_memory_tracker(
-    builder: &mut RuntimeEnvBuilder,
-) -> Arc<memory::TrackingMemoryPool> {
+fn install_memory_tracker(builder: &mut RuntimeEnvBuilder) -> Arc<memory::TrackingMemoryPool> {
     let inner: Arc<dyn MemoryPool> = builder
         .memory_pool
         .take()
@@ -169,9 +167,9 @@ fn classify_boxed_error(err: Box<dyn Error + Send + Sync>) -> c_int {
 
 fn classify_datafusion(err: &DataFusionError) -> c_int {
     match err {
-        DataFusionError::Plan(_) | DataFusionError::SQL(_, _) | DataFusionError::SchemaError(_, _) => {
-            EXCEPTION_PLAN
-        }
+        DataFusionError::Plan(_)
+        | DataFusionError::SQL(_, _)
+        | DataFusionError::SchemaError(_, _) => EXCEPTION_PLAN,
         DataFusionError::Execution(_)
         | DataFusionError::ExecutionJoin(_)
         | DataFusionError::External(_)
@@ -250,7 +248,9 @@ fn strings(array: DfStringArray) -> NativeResult<Vec<String>> {
         return Err("string array pointer is null with non-zero length".into());
     }
     let raw = unsafe { std::slice::from_raw_parts(array.ptr, array.len) };
-    raw.iter().map(|item| cstr(*item, "string array item")).collect()
+    raw.iter()
+        .map(|item| cstr(*item, "string array item"))
+        .collect()
 }
 
 pub(crate) fn write_handle<T>(out: *mut *mut T, value: T) -> NativeResult<()> {
@@ -328,7 +328,11 @@ fn combine_schemas(
 
 #[no_mangle]
 pub extern "C" fn df_last_error_kind() -> c_int {
-    LAST_ERROR.with(|slot| slot.borrow().as_ref().map_or(EXCEPTION_DATAFUSION, |e| e.kind))
+    LAST_ERROR.with(|slot| {
+        slot.borrow()
+            .as_ref()
+            .map_or(EXCEPTION_DATAFUSION, |e| e.kind)
+    })
 }
 
 #[no_mangle]
@@ -339,7 +343,9 @@ pub extern "C" fn df_last_error_message() -> *mut c_char {
             .as_ref()
             .map_or_else(String::new, |e| e.message.clone());
         CString::new(message)
-            .unwrap_or_else(|_| CString::new("error message contained nul byte").expect("literal is valid"))
+            .unwrap_or_else(|_| {
+                CString::new("error message contained nul byte").expect("literal is valid")
+            })
             .into_raw()
     })
 }
@@ -357,13 +363,17 @@ pub extern "C" fn df_string_free(ptr: *mut c_char) {
 pub extern "C" fn df_byte_buffer_free(buffer: DfByteBuffer) {
     if !buffer.ptr.is_null() {
         unsafe {
-            drop(Box::from_raw(std::slice::from_raw_parts_mut(buffer.ptr, buffer.len)));
+            drop(Box::from_raw(std::slice::from_raw_parts_mut(
+                buffer.ptr, buffer.len,
+            )));
         }
     }
 }
 
 #[no_mangle]
-pub extern "C" fn df_session_context_new(out: *mut *mut datafusion::prelude::SessionContext) -> c_int {
+pub extern "C" fn df_session_context_new(
+    out: *mut *mut datafusion::prelude::SessionContext,
+) -> c_int {
     take_result(|| {
         let mut runtime_builder = RuntimeEnvBuilder::new();
         let tracker = install_memory_tracker(&mut runtime_builder);
@@ -407,7 +417,11 @@ pub extern "C" fn df_session_context_new_with_options(
         }
         for opt in opts.options {
             if opt.key.starts_with("datafusion.runtime.") {
-                return Err(format!("datafusion.runtime.* keys are not supported via SetOption yet: {}", opt.key).into());
+                return Err(format!(
+                    "datafusion.runtime.* keys are not supported via SetOption yet: {}",
+                    opt.key
+                )
+                .into());
             }
             config.options_mut().set(&opt.key, &opt.value)?;
         }
@@ -430,13 +444,15 @@ pub extern "C" fn df_session_context_new_with_options(
             }
         }
         if let Some(cache_manager_options) = opts.cache_manager.as_ref() {
-            if let Some(cache_manager_config) = cache_manager::build_config(cache_manager_options)? {
+            if let Some(cache_manager_config) = cache_manager::build_config(cache_manager_options)?
+            {
                 runtime_builder = runtime_builder.with_cache_manager(cache_manager_config);
             }
         }
         let tracker = install_memory_tracker(&mut runtime_builder);
         let runtime_env = runtime_builder.build()?;
-        let ctx = datafusion::prelude::SessionContext::new_with_config_rt(config, Arc::new(runtime_env));
+        let ctx =
+            datafusion::prelude::SessionContext::new_with_config_rt(config, Arc::new(runtime_env));
         object_store::apply_registrations(&ctx, &opts.object_stores)?;
         if out.is_null() {
             return Err("output handle pointer is null".into());
@@ -451,7 +467,9 @@ pub extern "C" fn df_session_context_new_with_options(
 }
 
 #[no_mangle]
-pub extern "C" fn df_session_context_free(handle: *mut datafusion::prelude::SessionContext) -> c_int {
+pub extern "C" fn df_session_context_free(
+    handle: *mut datafusion::prelude::SessionContext,
+) -> c_int {
     take_result(|| {
         if !handle.is_null() {
             memory::unregister(handle as usize);
@@ -643,10 +661,34 @@ macro_rules! read_register_format {
     };
 }
 
-read_register_format!(df_session_context_register_csv, df_session_context_read_csv, csv_options, register_csv, read_csv);
-read_register_format!(df_session_context_register_json, df_session_context_read_json, json_options, register_json, read_json);
-read_register_format!(df_session_context_register_arrow, df_session_context_read_arrow, arrow_options, register_arrow, read_arrow);
-read_register_format!(df_session_context_register_avro, df_session_context_read_avro, avro_options, register_avro, read_avro);
+read_register_format!(
+    df_session_context_register_csv,
+    df_session_context_read_csv,
+    csv_options,
+    register_csv,
+    read_csv
+);
+read_register_format!(
+    df_session_context_register_json,
+    df_session_context_read_json,
+    json_options,
+    register_json,
+    read_json
+);
+read_register_format!(
+    df_session_context_register_arrow,
+    df_session_context_read_arrow,
+    arrow_options,
+    register_arrow,
+    read_arrow
+);
+read_register_format!(
+    df_session_context_register_avro,
+    df_session_context_read_avro,
+    avro_options,
+    register_avro,
+    read_avro
+);
 
 #[no_mangle]
 pub extern "C" fn df_dataframe_free(handle: *mut DataFrame) -> c_int {
@@ -670,7 +712,10 @@ pub extern "C" fn df_dataframe_schema_ipc(handle: *mut DataFrame, out: *mut DfBy
 }
 
 #[no_mangle]
-pub extern "C" fn df_dataframe_collect_ipc(handle: *mut DataFrame, out: *mut DfByteBuffer) -> c_int {
+pub extern "C" fn df_dataframe_collect_ipc(
+    handle: *mut DataFrame,
+    out: *mut DfByteBuffer,
+) -> c_int {
     take_result(|| {
         let df = unsafe { *Box::from_raw(require_ptr(handle, "DataFrame handle")?) };
         let schema: SchemaRef = Arc::new(df.schema().as_arrow().clone());
@@ -680,7 +725,10 @@ pub extern "C" fn df_dataframe_collect_ipc(handle: *mut DataFrame, out: *mut DfB
 }
 
 #[no_mangle]
-pub extern "C" fn df_dataframe_execute_stream_ipc(handle: *mut DataFrame, out: *mut DfByteBuffer) -> c_int {
+pub extern "C" fn df_dataframe_execute_stream_ipc(
+    handle: *mut DataFrame,
+    out: *mut DfByteBuffer,
+) -> c_int {
     take_result(|| {
         let df = unsafe { *Box::from_raw(require_ptr(handle, "DataFrame handle")?) };
         let schema: SchemaRef = Arc::new(df.schema().as_arrow().clone());
@@ -729,7 +777,12 @@ fn write_df(out: *mut *mut DataFrame, df: DataFrame) -> NativeResult<()> {
 }
 
 #[no_mangle]
-pub extern "C" fn df_dataframe_explain(handle: *mut DataFrame, verbose: bool, analyze: bool, out: *mut *mut DataFrame) -> c_int {
+pub extern "C" fn df_dataframe_explain(
+    handle: *mut DataFrame,
+    verbose: bool,
+    analyze: bool,
+    out: *mut *mut DataFrame,
+) -> c_int {
     take_result(|| {
         let df = unsafe { &*require_ptr(handle, "DataFrame handle")? }.clone();
         write_df(out, df.explain(verbose, analyze)?)
@@ -753,7 +806,11 @@ pub extern "C" fn df_dataframe_describe(handle: *mut DataFrame, out: *mut *mut D
 }
 
 #[no_mangle]
-pub extern "C" fn df_dataframe_select(handle: *mut DataFrame, columns: DfStringArray, out: *mut *mut DataFrame) -> c_int {
+pub extern "C" fn df_dataframe_select(
+    handle: *mut DataFrame,
+    columns: DfStringArray,
+    out: *mut *mut DataFrame,
+) -> c_int {
     take_result(|| {
         let df = unsafe { &*require_ptr(handle, "DataFrame handle")? }.clone();
         let owned = strings(columns)?;
@@ -763,7 +820,11 @@ pub extern "C" fn df_dataframe_select(handle: *mut DataFrame, columns: DfStringA
 }
 
 #[no_mangle]
-pub extern "C" fn df_dataframe_filter(handle: *mut DataFrame, predicate: *const c_char, out: *mut *mut DataFrame) -> c_int {
+pub extern "C" fn df_dataframe_filter(
+    handle: *mut DataFrame,
+    predicate: *const c_char,
+    out: *mut *mut DataFrame,
+) -> c_int {
     take_result(|| {
         let df = unsafe { &*require_ptr(handle, "DataFrame handle")? }.clone();
         let predicate = cstr(predicate, "predicate")?;
@@ -773,7 +834,12 @@ pub extern "C" fn df_dataframe_filter(handle: *mut DataFrame, predicate: *const 
 }
 
 #[no_mangle]
-pub extern "C" fn df_dataframe_limit(handle: *mut DataFrame, skip: usize, fetch: usize, out: *mut *mut DataFrame) -> c_int {
+pub extern "C" fn df_dataframe_limit(
+    handle: *mut DataFrame,
+    skip: usize,
+    fetch: usize,
+    out: *mut *mut DataFrame,
+) -> c_int {
     take_result(|| {
         let df = unsafe { &*require_ptr(handle, "DataFrame handle")? }.clone();
         write_df(out, df.limit(skip, Some(fetch))?)
@@ -789,7 +855,11 @@ pub extern "C" fn df_dataframe_distinct(handle: *mut DataFrame, out: *mut *mut D
 }
 
 #[no_mangle]
-pub extern "C" fn df_dataframe_drop_columns(handle: *mut DataFrame, columns: DfStringArray, out: *mut *mut DataFrame) -> c_int {
+pub extern "C" fn df_dataframe_drop_columns(
+    handle: *mut DataFrame,
+    columns: DfStringArray,
+    out: *mut *mut DataFrame,
+) -> c_int {
     take_result(|| {
         let df = unsafe { &*require_ptr(handle, "DataFrame handle")? }.clone();
         let owned = strings(columns)?;
@@ -799,7 +869,12 @@ pub extern "C" fn df_dataframe_drop_columns(handle: *mut DataFrame, columns: DfS
 }
 
 #[no_mangle]
-pub extern "C" fn df_dataframe_rename_column(handle: *mut DataFrame, old_name: *const c_char, new_name: *const c_char, out: *mut *mut DataFrame) -> c_int {
+pub extern "C" fn df_dataframe_rename_column(
+    handle: *mut DataFrame,
+    old_name: *const c_char,
+    new_name: *const c_char,
+    out: *mut *mut DataFrame,
+) -> c_int {
     take_result(|| {
         let df = unsafe { &*require_ptr(handle, "DataFrame handle")? }.clone();
         let old_name = cstr(old_name, "old_name")?;
@@ -809,7 +884,12 @@ pub extern "C" fn df_dataframe_rename_column(handle: *mut DataFrame, old_name: *
 }
 
 #[no_mangle]
-pub extern "C" fn df_dataframe_with_column(handle: *mut DataFrame, name: *const c_char, expr: *const c_char, out: *mut *mut DataFrame) -> c_int {
+pub extern "C" fn df_dataframe_with_column(
+    handle: *mut DataFrame,
+    name: *const c_char,
+    expr: *const c_char,
+    out: *mut *mut DataFrame,
+) -> c_int {
     take_result(|| {
         let df = unsafe { &*require_ptr(handle, "DataFrame handle")? }.clone();
         let name = cstr(name, "name")?;
@@ -820,7 +900,12 @@ pub extern "C" fn df_dataframe_with_column(handle: *mut DataFrame, name: *const 
 }
 
 #[no_mangle]
-pub extern "C" fn df_dataframe_unnest_columns(handle: *mut DataFrame, columns: DfStringArray, preserve_nulls: bool, out: *mut *mut DataFrame) -> c_int {
+pub extern "C" fn df_dataframe_unnest_columns(
+    handle: *mut DataFrame,
+    columns: DfStringArray,
+    preserve_nulls: bool,
+    out: *mut *mut DataFrame,
+) -> c_int {
     take_result(|| {
         let df = unsafe { &*require_ptr(handle, "DataFrame handle")? }.clone();
         let owned = strings(columns)?;
@@ -833,7 +918,11 @@ pub extern "C" fn df_dataframe_unnest_columns(handle: *mut DataFrame, columns: D
 macro_rules! set_op {
     ($name:ident, $method:ident) => {
         #[no_mangle]
-        pub extern "C" fn $name(left: *mut DataFrame, right: *mut DataFrame, out: *mut *mut DataFrame) -> c_int {
+        pub extern "C" fn $name(
+            left: *mut DataFrame,
+            right: *mut DataFrame,
+            out: *mut *mut DataFrame,
+        ) -> c_int {
             take_result(|| {
                 let left = unsafe { &*require_ptr(left, "left DataFrame handle")? }.clone();
                 let right = unsafe { &*require_ptr(right, "right DataFrame handle")? }.clone();
@@ -878,15 +967,27 @@ pub extern "C" fn df_dataframe_sort(
 }
 
 #[no_mangle]
-pub extern "C" fn df_dataframe_repartition_round_robin(handle: *mut DataFrame, partitions: usize, out: *mut *mut DataFrame) -> c_int {
+pub extern "C" fn df_dataframe_repartition_round_robin(
+    handle: *mut DataFrame,
+    partitions: usize,
+    out: *mut *mut DataFrame,
+) -> c_int {
     take_result(|| {
         let df = unsafe { &*require_ptr(handle, "DataFrame handle")? }.clone();
-        write_df(out, df.repartition(Partitioning::RoundRobinBatch(partitions))?)
+        write_df(
+            out,
+            df.repartition(Partitioning::RoundRobinBatch(partitions))?,
+        )
     })
 }
 
 #[no_mangle]
-pub extern "C" fn df_dataframe_repartition_hash(handle: *mut DataFrame, partitions: usize, columns: DfStringArray, out: *mut *mut DataFrame) -> c_int {
+pub extern "C" fn df_dataframe_repartition_hash(
+    handle: *mut DataFrame,
+    partitions: usize,
+    columns: DfStringArray,
+    out: *mut *mut DataFrame,
+) -> c_int {
     take_result(|| {
         let df = unsafe { &*require_ptr(handle, "DataFrame handle")? }.clone();
         let owned = strings(columns)?;
@@ -920,7 +1021,16 @@ pub extern "C" fn df_dataframe_join(
             let (state, _) = left.clone().into_parts();
             Some(state.create_logical_expr(&filter_sql, &combined)?)
         };
-        write_df(out, left.join(right, join_type(join_type_code)?, &left_refs, &right_refs, filter_expr)?)
+        write_df(
+            out,
+            left.join(
+                right,
+                join_type(join_type_code)?,
+                &left_refs,
+                &right_refs,
+                filter_expr,
+            )?,
+        )
     })
 }
 
