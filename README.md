@@ -92,7 +92,7 @@ using DataFrame dataFrame = context.Sql("SELECT 1 AS value UNION ALL SELECT 2 AS
 Console.WriteLine(dataFrame.Count());
 
 using DataFrame stream = context.Sql("SELECT 'hello' AS message");
-using BatchReader reader = stream.ExecuteStream();
+using ArrowBatchReader reader = stream.ExecuteStream();
 while (await reader.ReadNextRecordBatchAsync() is { } batch)
 {
     Console.WriteLine(batch.Length);
@@ -210,6 +210,6 @@ Supported RIDs: `win-x64`, `linux-x64`, `linux-arm64`, `linux-musl-x64`,
 ## Notes and limitations
 
 `Collect` and `ExecuteStream` currently return Arrow IPC-backed readers on the C# side, and
-`BatchReader.Transport` reports `ArrowIpcFallback`. The native C ABI is structured so a
+`ArrowBatchReader.Transport` reports `ArrowIpcFallback`. The native C ABI is structured so a
 direct Arrow C Data Interface path can be added later, once the target C# Arrow package
 exposes the required stable API.

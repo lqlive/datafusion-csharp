@@ -25,7 +25,7 @@ public sealed class DataFrameLifecycleTests
         using SessionContext context = new();
         using DataFrame dataFrame = context.Sql("SELECT 1 AS value");
 
-        using BatchReader _ = dataFrame.Collect();
+        using ArrowBatchReader _ = dataFrame.Collect();
 
         Assert.Throws<ObjectDisposedException>(() => dataFrame.Count());
     }

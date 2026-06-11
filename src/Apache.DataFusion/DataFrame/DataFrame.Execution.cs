@@ -22,9 +22,9 @@ namespace Apache.DataFusion;
 
 public sealed partial class DataFrame
 {
-    public BatchReader Collect()
+    public ArrowBatchReader Collect()
     {
-        return new BatchReader(CollectIpcBytes());
+        return new ArrowBatchReader(CollectIpcBytes());
     }
 
     internal byte[] CollectIpcBytes()
@@ -34,11 +34,11 @@ public sealed partial class DataFrame
         return NativeMethods.CopyAndFree(buffer);
     }
 
-    public BatchReader ExecuteStream()
+    public ArrowBatchReader ExecuteStream()
     {
         IntPtr current = TakeHandle();
         NativeMethods.Check(NativeMethods.df_dataframe_execute_stream_ipc(current, out NativeMethods.ByteBuffer buffer));
-        return new BatchReader(NativeMethods.CopyAndFree(buffer));
+        return new ArrowBatchReader(NativeMethods.CopyAndFree(buffer));
     }
 
     public byte[] SchemaIpc()

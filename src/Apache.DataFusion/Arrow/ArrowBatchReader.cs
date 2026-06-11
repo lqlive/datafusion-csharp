@@ -20,23 +20,23 @@ using Apache.Arrow.Ipc;
 
 namespace Apache.DataFusion;
 
-public enum BatchReaderTransport
+public enum ArrowBatchReaderTransport
 {
     ArrowIpcFallback,
 }
 
-public sealed class BatchReader : IDisposable
+public sealed class ArrowBatchReader : IDisposable
 {
     private readonly MemoryStream stream;
     private readonly ArrowStreamReader reader;
 
-    internal BatchReader(byte[] ipcBytes)
+    internal ArrowBatchReader(byte[] ipcBytes)
     {
         stream = new MemoryStream(ipcBytes, writable: false);
         reader = new ArrowStreamReader(stream);
     }
 
-    public BatchReaderTransport Transport => BatchReaderTransport.ArrowIpcFallback;
+    public ArrowBatchReaderTransport Transport => ArrowBatchReaderTransport.ArrowIpcFallback;
 
     public ValueTask<RecordBatch?> ReadNextRecordBatchAsync(CancellationToken cancellationToken = default) =>
         reader.ReadNextRecordBatchAsync(cancellationToken);

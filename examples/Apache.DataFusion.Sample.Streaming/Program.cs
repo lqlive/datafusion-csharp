@@ -26,7 +26,7 @@ context.RegisterCsv("people", csvPath, new CsvReadOptions { HasHeader = true });
 using DataFrame df = context.Sql("SELECT id, name, age FROM people ORDER BY id");
 
 // Stream Arrow record batches and read typed column values.
-using BatchReader reader = df.ExecuteStream();
+using ArrowBatchReader reader = df.ExecuteStream();
 int batchIndex = 0;
 while (await reader.ReadNextRecordBatchAsync() is { } batch)
 {
