@@ -37,12 +37,29 @@ and result sets cross as Apache Arrow IPC byte streams.
 ## Install
 
 Published on NuGet as a managed package plus RID-specific native runtime packages.
-Install the managed package and the native package matching your platform:
+Install the managed package and **the one native package matching your platform**:
 
 ```powershell
 dotnet add package Apache.DataFusion
 dotnet add package Apache.DataFusion.Native.win-x64
 ```
+
+The managed `Apache.DataFusion` package intentionally does **not** depend on the native
+packages. If it depended on all of them, every platform's binary (hundreds of MB total)
+would be copied into your build output. Instead you pick exactly the runtime you need:
+
+| Platform | Native package |
+| --- | --- |
+| Windows x64 | `Apache.DataFusion.Native.win-x64` |
+| Linux x64 (glibc) | `Apache.DataFusion.Native.linux-x64` |
+| Linux arm64 (glibc) | `Apache.DataFusion.Native.linux-arm64` |
+| Linux x64 (musl / Alpine) | `Apache.DataFusion.Native.linux-musl-x64` |
+| Linux arm64 (musl / Alpine) | `Apache.DataFusion.Native.linux-musl-arm64` |
+| macOS x64 (Intel) | `Apache.DataFusion.Native.osx-x64` |
+| macOS arm64 (Apple Silicon) | `Apache.DataFusion.Native.osx-arm64` |
+
+If you build for multiple platforms (e.g. CI matrix or cross-publish), add each target's
+native package; only the matching RID's binary is kept on `dotnet publish -r <rid>`.
 
 Source and issues: [github.com/lqlive/datafusion-csharp](https://github.com/lqlive/datafusion-csharp).
 

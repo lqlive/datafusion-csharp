@@ -1,0 +1,41 @@
+<Project>
+
+  <!-- Inherit the repository-wide settings (Version, TargetFramework, analyzers, etc.). -->
+	<Import Project="..\Directory.Build.props" />
+	
+  <!-- The sample apps run against the repo's locally built native library (not the published
+       NuGet package and without touching the distribution packaging projects). Build it first
+       by running `cargo build` (add the release flag for a release build) in native/. The
+       matching OS binary is copied into the sample output under runtimes/[rid]/native/, where
+       NativeLibraryLoader probes. -->
+  <PropertyGroup>
+    <_CargoProfile>debug</_CargoProfile>
+    <_CargoProfile Condition="'$(Configuration)' == 'Release'">release</_CargoProfile>
+    <_NativeTargetDir>$(MSBuildThisFileDirectory)..\native\target\$(_CargoProfile)\</_NativeTargetDir>
+  </PropertyGroup>
+
+  <!-- Select the current platform's binary via MSBuild's OS check (works in dotnet build,
+       Visual Studio, and Rider alike) and copy it to the output root, where
+       NativeLibraryLoader probes first. -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Windows'))">
+    <None Include="$(_NativeTargetDir)datafusion_csharp_native.dll"
+          Condition="Exists('$(_NativeTargetDir)datafusion_csharp_native.dll')"
+          Link="datafusion_csharp_native.dll"
+          CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux'))">
+    <None Include="$(_NativeTargetDir)libdatafusion_csharp_native.so"
+          Condition="Exists('$(_NativeTargetDir)libdatafusion_csharp_native.so')"
+          Link="libdatafusion_csharp_native.so"
+          CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <None Include="$(_NativeTargetDir)libdatafusion_csharp_native.dylib"
+          Condition="Exists('$(_NativeTargetDir)libdatafusion_csharp_native.dylib')"
+          Link="libdatafusion_csharp_native.dylib"
+          CopyToOutputDirectory="PreserveNewest" Visible="false" />
+  </ItemGroup>
+
+</Project>

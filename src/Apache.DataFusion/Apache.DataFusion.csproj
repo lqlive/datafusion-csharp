@@ -41,21 +41,10 @@
           Link="libdatafusion_csharp_native.dylib" CopyToOutputDirectory="PreserveNewest" Pack="false" Visible="false" />
   </ItemGroup>
 
-  <!-- Native runtime packages flow through as NuGet dependencies so consumers get the
-       platform-specific binary automatically (no RID required at restore). Referenced as
-       projects (not packages) so the repo builds without a private feed; the marker
-       assemblies are not consumed (ReferenceOutputAssembly=false), only the package
-       dependency is emitted. On `dotnet publish -r <rid>` only the matching RID's binary
-       is kept. -->
-  <ItemGroup>
-    <ProjectReference Include="..\..\packages\Apache.DataFusion.Native.win-x64.csproj" Private="false" PrivateAssets="none" />
-    <ProjectReference Include="..\..\packages\Apache.DataFusion.Native.linux-x64.csproj" Private="false" PrivateAssets="none" />
-    <ProjectReference Include="..\..\packages\Apache.DataFusion.Native.linux-arm64.csproj" Private="false" PrivateAssets="none" />
-    <ProjectReference Include="..\..\packages\Apache.DataFusion.Native.linux-musl-x64.csproj" Private="false" PrivateAssets="none" />
-    <ProjectReference Include="..\..\packages\Apache.DataFusion.Native.linux-musl-arm64.csproj" Private="false" PrivateAssets="none" />
-    <ProjectReference Include="..\..\packages\Apache.DataFusion.Native.osx-x64.csproj" Private="false" PrivateAssets="none" />
-    <ProjectReference Include="..\..\packages\Apache.DataFusion.Native.osx-arm64.csproj" Private="false" PrivateAssets="none" />
-  </ItemGroup>
+  <!-- The managed package intentionally does NOT depend on the per-RID native packages.
+       Depending on all of them pulls every platform's (large) binary into a consumer's
+       framework-dependent build output. Consumers install only the matching
+       Apache.DataFusion.Native.<rid> package for their platform instead (see README). -->
 
   <ItemGroup>
     <PackageReference Include="Apache.Arrow" Version="23.0.0" />
