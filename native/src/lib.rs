@@ -15,6 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+// This crate is a C ABI shim. Exported `extern "C"` functions intentionally accept and
+// dereference raw pointers passed across the FFI boundary, which trips clippy lints that
+// are not meaningful for hand-written FFI surfaces.
+#![allow(clippy::not_unsafe_ptr_arg_deref)]
+#![allow(clippy::cast_slice_from_raw_parts)]
+#![allow(clippy::missing_const_for_thread_local)]
+
 use std::cell::RefCell;
 use std::error::Error;
 use std::ffi::{CStr, CString};
