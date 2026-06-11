@@ -40,3 +40,15 @@ url = "2"
 [build-dependencies]
 prost-build = "0.14"
 protoc-bin-vendored = "3"
+
+# Debug builds statically link the whole DataFusion/Arrow tree; full debuginfo dominates the
+# artifact size (hundreds of MB). Line tables keep usable backtraces at a fraction of the size.
+[profile.dev]
+debug = "line-tables-only"
+
+# Keep the default opt-level (3) for runtime speed; shrink the shipped binary with LTO,
+# a single codegen unit, and symbol stripping (no perf cost, often a small gain).
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
