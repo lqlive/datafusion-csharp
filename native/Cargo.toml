@@ -1,9 +1,14 @@
 [package]
-name = "datafusion_csharp_native"
+name = "datafusion-csharp-native"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
+# Keep the artifact named `datafusion_csharp_native` (the loader, the per-RID
+# packaging projects and release.yml all reference this exact file name). Cargo
+# would derive the same from the hyphenated package name, but pin it explicitly
+# so the output never depends on that normalization.
+name = "datafusion_csharp_native"
 crate-type = ["cdylib", "rlib"]
 
 [features]

@@ -28,15 +28,19 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
+      # Every target is built natively (no `cross`): arm64 Linux uses GitHub's
+      # arm64 runners and musl uses `musl-tools`. This keeps `build.rs` building
+      # on the host filesystem so the repo-relative `../proto` path is always
+      # visible, mirroring the upstream Java SDK's plain `cargo build` approach.
       matrix:
         include:
-          - { os: windows-latest, rid: win-x64,          target: "",                          tool: cargo, lib: datafusion_csharp_native.dll }
-          - { os: ubuntu-latest,  rid: linux-x64,         target: x86_64-unknown-linux-gnu,    tool: cross, lib: libdatafusion_csharp_native.so }
-          - { os: ubuntu-latest,  rid: linux-arm64,       target: aarch64-unknown-linux-gnu,   tool: cross, lib: libdatafusion_csharp_native.so }
-          - { os: ubuntu-latest,  rid: linux-musl-x64,    target: x86_64-unknown-linux-musl,   tool: cross, lib: libdatafusion_csharp_native.so }
-          - { os: ubuntu-latest,  rid: linux-musl-arm64,  target: aarch64-unknown-linux-musl,  tool: cross, lib: libdatafusion_csharp_native.so }
-          - { os: macos-latest,   rid: osx-x64,           target: x86_64-apple-darwin,         tool: cargo, lib: libdatafusion_csharp_native.dylib }
-          - { os: macos-latest,   rid: osx-arm64,         target: aarch64-apple-darwin,        tool: cargo, lib: libdatafusion_csharp_native.dylib }
+          - { os: windows-latest,   rid: win-x64,          target: "",                          lib: datafusion_csharp_native.dll }
+          - { os: ubuntu-latest,    rid: linux-x64,         target: x86_64-unknown-linux-gnu,    lib: libdatafusion_csharp_native.so }
+          - { os: ubuntu-24.04-arm, rid: linux-arm64,       target: aarch64-unknown-linux-gnu,   lib: libdatafusion_csharp_native.so }
+          - { os: ubuntu-latest,    rid: linux-musl-x64,    target: x86_64-unknown-linux-musl,   lib: libdatafusion_csharp_native.so, musl: true }
+          - { os: ubuntu-24.04-arm, rid: linux-musl-arm64,  target: aarch64-unknown-linux-musl,  lib: libdatafusion_csharp_native.so, musl: true }
+          - { os: macos-latest,     rid: osx-x64,           target: x86_64-apple-darwin,         lib: libdatafusion_csharp_native.dylib }
+          - { os: macos-latest,     rid: osx-arm64,         target: aarch64-apple-darwin,        lib: libdatafusion_csharp_native.dylib }
     defaults:
       run:
         shell: bash
@@ -54,17 +58,19 @@ jobs:
           workspaces: native
           key: ${{ matrix.rid }}
 
-      - name: Install cross
-        if: matrix.tool == 'cross'
-        run: cargo install cross --locked
+      - name: Install musl tools
+        if: matrix.musl
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
 
       - name: Build native library (release)
         working-directory: native
+        # For musl, link libc dynamically (-crt-static off) so the produced .so
+        # behaves like a normal shared object that .NET can dlopen on Alpine.
+        env:
+          RUSTFLAGS: ${{ matrix.musl && '-C target-feature=-crt-static' || '' }}
         run: |
           set -euo pipefail
-          if [ "${{ matrix.tool }}" = "cross" ]; then
-            cross build --release --target "${{ matrix.target }}"
-          elif [ -n "${{ matrix.target }}" ]; then
+          if [ -n "${{ matrix.target }}" ]; then
             cargo build --release --target "${{ matrix.target }}"
           else
             cargo build --release

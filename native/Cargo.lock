@@ -1289,6 +1289,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "datafusion-csharp-native"
+version = "0.1.0"
+dependencies = [
+ "arrow",
+ "datafusion",
+ "datafusion-proto",
+ "datafusion-substrait",
+ "datafusion-table-providers",
+ "futures",
+ "object_store",
+ "prost",
+ "prost-build",
+ "protoc-bin-vendored",
+ "tokio",
+ "tokio-metrics",
+ "url",
+]
+
+[[package]]
 name = "datafusion-datasource"
 version = "53.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1942,25 +1961,6 @@ dependencies = [
  "tracing",
  "url",
  "uuid",
-]
-
-[[package]]
-name = "datafusion_csharp_native"
-version = "0.1.0"
-dependencies = [
- "arrow",
- "datafusion",
- "datafusion-proto",
- "datafusion-substrait",
- "datafusion-table-providers",
- "futures",
- "object_store",
- "prost",
- "prost-build",
- "protoc-bin-vendored",
- "tokio",
- "tokio-metrics",
- "url",
 ]
 
 [[package]]
