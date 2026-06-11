@@ -6,6 +6,7 @@ target/
 .idea/
 node_modules/
 dist/
+benchmark-data/
 *.user
 *.suo
 *.rsuser
