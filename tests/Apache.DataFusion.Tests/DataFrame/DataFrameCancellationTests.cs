@@ -72,7 +72,7 @@ public sealed class DataFrameCancellationTests
     }
 
     [Fact]
-    public void CancelMidCollectAbortsBeforeCompletion()
+    public async Task CancelMidCollectAbortsBeforeCompletion()
     {
         ManualResetEventSlim firstInvocation = new(initialState: false);
 
@@ -99,8 +99,10 @@ public sealed class DataFrameCancellationTests
         Assert.True(firstInvocation.Wait(TimeSpan.FromSeconds(10)), "UDF should have been invoked at least once");
         cts.Cancel();
 
-        AggregateException aggregate = Assert.Throws<AggregateException>(() => task.Wait(TimeSpan.FromSeconds(20)));
-        Assert.IsAssignableFrom<OperationCanceledException>(aggregate.InnerException);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+        {
+            using ArrowBatchReader _ = await task.WaitAsync(TimeSpan.FromSeconds(20));
+        });
     }
 
     private static async Task<long> CountRowsAsync(ArrowBatchReader reader)
