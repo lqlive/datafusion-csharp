@@ -94,7 +94,9 @@ pub extern "C" fn df_postgres_table_factory_register(
 }
 
 #[no_mangle]
-pub extern "C" fn df_postgres_table_factory_free(factory: *mut PostgresTableFactoryHandle) -> c_int {
+pub extern "C" fn df_postgres_table_factory_free(
+    factory: *mut PostgresTableFactoryHandle,
+) -> c_int {
     take_result(|| {
         if !factory.is_null() {
             unsafe {

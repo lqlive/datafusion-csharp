@@ -79,7 +79,13 @@ pub extern "C" fn df_mongodb_table_factory_register(
         let registration_name = cstr(registration_name, "registration_name")?;
         let collection_name = cstr(collection_name, "collection_name")?;
 
-        register_mongodb_table(factory, ctx, registration_name, collection_name, token_handle)
+        register_mongodb_table(
+            factory,
+            ctx,
+            registration_name,
+            collection_name,
+            token_handle,
+        )
     })
 }
 
