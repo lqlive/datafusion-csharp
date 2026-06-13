@@ -17,7 +17,7 @@
 
 namespace Apache.DataFusion.Tests;
 
-public sealed class SessionContextObservabilityTests
+public sealed class SessionContextRuntimeTests
 {
     [Fact]
     public void GetOptionReturnsConfiguredValue()

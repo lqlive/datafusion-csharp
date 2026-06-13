@@ -80,7 +80,7 @@ internal static partial class NativeMethods
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern void df_byte_buffer_free(ByteBuffer buffer);
 
-    internal static void Check(int status)
+    internal static void ThrowIfError(int status)
     {
         if (status == 0)
         {

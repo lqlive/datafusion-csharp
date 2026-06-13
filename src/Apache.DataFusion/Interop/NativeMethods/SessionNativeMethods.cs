@@ -45,47 +45,6 @@ internal static partial class NativeMethods
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern int df_session_context_register_table_ipc(IntPtr handle, IntPtr name, IntPtr ipcPtr, nuint ipcLen);
 
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_register_postgres_table(
-        IntPtr handle,
-        IntPtr registrationName,
-        IntPtr connectionString,
-        IntPtr schemaName,
-        IntPtr tableName);
-
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_register_mysql_table(
-        IntPtr handle,
-        IntPtr registrationName,
-        IntPtr connectionString,
-        IntPtr schemaName,
-        IntPtr tableName);
-
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_register_mongodb_table(
-        IntPtr handle,
-        IntPtr registrationName,
-        IntPtr connectionString,
-        IntPtr collectionName);
-
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_register_clickhouse_table(
-        IntPtr handle,
-        IntPtr registrationName,
-        IntPtr url,
-        IntPtr database,
-        IntPtr user,
-        IntPtr password,
-        IntPtr tableName);
-
-    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_register_sqlite_table(
-        IntPtr handle,
-        IntPtr registrationName,
-        IntPtr path,
-        IntPtr tableName,
-        ulong busyTimeoutMs);
-
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     internal delegate int ScalarI64Callback(IntPtr userData, out long value);
 

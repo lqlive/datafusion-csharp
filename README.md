@@ -212,6 +212,35 @@ context.RegisterSqlite(
     new SqliteTableOptions("example.db", "companies"));
 ```
 
+Each `RegisterXxx` call above builds a connection pool, registers one table and
+releases the pool. When registering several tables from the same database,
+reuse a factory so the pool is built once:
+
+```csharp
+using SessionContext context = new();
+
+// Build the PostgreSQL connection pool once...
+using PostgresTableFactory factory = new(
+    "host=localhost port=5432 dbname=postgres user=postgres password=password sslmode=disable");
+
+// ...then register many tables against the same pool.
+factory.Register(context, "companies", "companies", schemaName: "public");
+factory.Register(context, "orders", "orders", schemaName: "public");
+```
+
+Pool creation and table registration are cooperatively cancellable. Pass a
+`CancellationToken` to abort a slow connect or registration; a cancelled call
+throws `OperationCanceledException`:
+
+```csharp
+using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+using PostgresTableFactory factory = new(connectionString, cts.Token);
+factory.Register(context, "companies", "companies", cancellationToken: cts.Token);
+```
+
+`MySqlTableFactory`, `SqliteTableFactory`, `ClickHouseTableFactory` and
+`MongoDbTableFactory` expose the same pattern.
+
 ## Native packaging
 
 Native binaries are packaged through RID-specific projects under `packages/`, placing the

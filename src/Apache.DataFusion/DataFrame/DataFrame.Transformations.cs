@@ -22,27 +22,25 @@ namespace Apache.DataFusion;
 public sealed partial class DataFrame
 {
     public DataFrame Explain(bool verbose = false, bool analyze = false) =>
-        Unary(out IntPtr dataFrame, () => NativeMethods.df_dataframe_explain(handle, verbose, analyze, out dataFrame));
+        Unary(out IntPtr dataFrame, () => NativeMethods.df_dataframe_explain(Handle, verbose, analyze, out dataFrame));
 
     public DataFrame Cache() =>
-        Unary(out IntPtr dataFrame, () => NativeMethods.df_dataframe_cache(handle, out dataFrame));
+        Unary(out IntPtr dataFrame, () => NativeMethods.df_dataframe_cache(Handle, out dataFrame));
 
     public DataFrame Describe() =>
-        Unary(out IntPtr dataFrame, () => NativeMethods.df_dataframe_describe(handle, out dataFrame));
+        Unary(out IntPtr dataFrame, () => NativeMethods.df_dataframe_describe(Handle, out dataFrame));
 
     public DataFrame Select(params string[] columnNames)
     {
-        EnsureOpen();
         using NativeStringArray columns = new(columnNames);
-        NativeMethods.Check(NativeMethods.df_dataframe_select(handle, columns.Native, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_select(Handle, columns.Native, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 
     public DataFrame Filter(string predicate)
     {
-        EnsureOpen();
         using NativeUtf8String nativePredicate = new(predicate);
-        NativeMethods.Check(NativeMethods.df_dataframe_filter(handle, nativePredicate.Pointer, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_filter(Handle, nativePredicate.Pointer, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 
@@ -52,64 +50,57 @@ public sealed partial class DataFrame
     {
         ArgumentOutOfRangeException.ThrowIfNegative(skip);
         ArgumentOutOfRangeException.ThrowIfNegative(fetch);
-        EnsureOpen();
-        NativeMethods.Check(NativeMethods.df_dataframe_limit(handle, (nuint)skip, (nuint)fetch, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_limit(Handle, (nuint)skip, (nuint)fetch, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 
     public DataFrame Distinct() =>
-        Unary(out IntPtr dataFrame, () => NativeMethods.df_dataframe_distinct(handle, out dataFrame));
+        Unary(out IntPtr dataFrame, () => NativeMethods.df_dataframe_distinct(Handle, out dataFrame));
 
     public DataFrame DropColumns(params string[] columnNames)
     {
-        EnsureOpen();
         using NativeStringArray columns = new(columnNames);
-        NativeMethods.Check(NativeMethods.df_dataframe_drop_columns(handle, columns.Native, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_drop_columns(Handle, columns.Native, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 
     public DataFrame WithColumnRenamed(string oldName, string newName)
     {
-        EnsureOpen();
         using NativeUtf8String oldNative = new(oldName);
         using NativeUtf8String newNative = new(newName);
-        NativeMethods.Check(NativeMethods.df_dataframe_rename_column(handle, oldNative.Pointer, newNative.Pointer, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_rename_column(Handle, oldNative.Pointer, newNative.Pointer, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 
     public DataFrame WithColumn(string name, string expression)
     {
-        EnsureOpen();
         using NativeUtf8String nativeName = new(name);
         using NativeUtf8String nativeExpression = new(expression);
-        NativeMethods.Check(NativeMethods.df_dataframe_with_column(handle, nativeName.Pointer, nativeExpression.Pointer, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_with_column(Handle, nativeName.Pointer, nativeExpression.Pointer, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 
     public DataFrame UnnestColumns(IEnumerable<string> columns, bool preserveNulls = false)
     {
-        EnsureOpen();
         using NativeStringArray nativeColumns = new(columns);
-        NativeMethods.Check(NativeMethods.df_dataframe_unnest_columns(handle, nativeColumns.Native, preserveNulls, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_unnest_columns(Handle, nativeColumns.Native, preserveNulls, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 
     public DataFrame Sort(params SortExpr[] expressions)
     {
-        EnsureOpen();
         string[] names = expressions.Select(expr => expr.ColumnName).ToArray();
         bool[] ascending = expressions.Select(expr => expr.Ascending).ToArray();
         bool[] nullsFirst = expressions.Select(expr => expr.NullsFirst).ToArray();
         using NativeStringArray columns = new(names);
-        NativeMethods.Check(NativeMethods.df_dataframe_sort(handle, columns.Native, ascending, nullsFirst, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_sort(Handle, columns.Native, ascending, nullsFirst, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 
     private DataFrame Unary(out IntPtr dataFrame, Func<int> native)
     {
-        EnsureOpen();
         dataFrame = IntPtr.Zero;
-        NativeMethods.Check(native());
+        NativeMethods.ThrowIfError(native());
         return new DataFrame(dataFrame);
     }
 }

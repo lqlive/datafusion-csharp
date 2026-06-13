@@ -38,7 +38,7 @@ internal sealed class NativeCancellationToken : IDisposable
 
     public static NativeCancellationToken Create()
     {
-        NativeMethods.Check(NativeMethods.df_cancellation_token_new(out ulong handle));
+        NativeMethods.ThrowIfError(NativeMethods.df_cancellation_token_new(out ulong handle));
         return new NativeCancellationToken((long)handle);
     }
 
@@ -49,7 +49,7 @@ internal sealed class NativeCancellationToken : IDisposable
         long current = Interlocked.Read(ref handle);
         if (current != 0)
         {
-            NativeMethods.Check(NativeMethods.df_cancellation_token_cancel((ulong)current));
+            NativeMethods.ThrowIfError(NativeMethods.df_cancellation_token_cancel((ulong)current));
         }
     }
 
@@ -58,7 +58,7 @@ internal sealed class NativeCancellationToken : IDisposable
         long current = Interlocked.Exchange(ref handle, 0);
         if (current != 0)
         {
-            NativeMethods.Check(NativeMethods.df_cancellation_token_free((ulong)current));
+            NativeMethods.ThrowIfError(NativeMethods.df_cancellation_token_free((ulong)current));
         }
     }
 }

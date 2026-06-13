@@ -42,9 +42,7 @@ public sealed partial class DataFrame
     private DataFrame Binary(DataFrame other, BinaryNative native)
     {
         ArgumentNullException.ThrowIfNull(other);
-        EnsureOpen();
-        other.EnsureOpen();
-        NativeMethods.Check(native(handle, other.handle, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(native(Handle, other.Handle, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 }

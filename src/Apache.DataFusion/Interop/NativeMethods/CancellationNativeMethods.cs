@@ -30,7 +30,7 @@ internal static partial class NativeMethods
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern int df_cancellation_token_free(ulong handle);
 
-    internal static void CheckCancellable(int status, CancellationToken cancellationToken)
+    internal static void ThrowIfError(int status, CancellationToken cancellationToken)
     {
         if (status == 0)
         {
@@ -47,6 +47,6 @@ internal static partial class NativeMethods
             throw new OperationCanceledException(cancellationToken);
         }
 
-        Check(status);
+        ThrowIfError(status);
     }
 }

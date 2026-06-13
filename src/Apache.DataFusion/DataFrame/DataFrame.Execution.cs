@@ -44,7 +44,7 @@ public sealed partial class DataFrame
         IntPtr current = TakeHandle();
         if (!cancellationToken.CanBeCanceled)
         {
-            NativeMethods.Check(NativeMethods.df_dataframe_collect_ipc(current, 0UL, out NativeMethods.ByteBuffer buffer));
+            NativeMethods.ThrowIfError(NativeMethods.df_dataframe_collect_ipc(current, 0UL, out NativeMethods.ByteBuffer buffer));
             return NativeMethods.CopyAndFree(buffer);
         }
 
@@ -52,7 +52,7 @@ public sealed partial class DataFrame
         using (cancellationToken.Register(static state => ((NativeCancellationToken)state!).Cancel(), token))
         {
             int status = NativeMethods.df_dataframe_collect_ipc(current, token.Handle, out NativeMethods.ByteBuffer buffer);
-            NativeMethods.CheckCancellable(status, cancellationToken);
+            NativeMethods.ThrowIfError(status, cancellationToken);
             return NativeMethods.CopyAndFree(buffer);
         }
     }
@@ -72,7 +72,7 @@ public sealed partial class DataFrame
         IntPtr current = TakeHandle();
         if (!cancellationToken.CanBeCanceled)
         {
-            NativeMethods.Check(NativeMethods.df_dataframe_execute_stream_ipc(current, 0UL, out NativeMethods.ByteBuffer buffer));
+            NativeMethods.ThrowIfError(NativeMethods.df_dataframe_execute_stream_ipc(current, 0UL, out NativeMethods.ByteBuffer buffer));
             return new ArrowBatchReader(NativeMethods.CopyAndFree(buffer));
         }
 
@@ -80,15 +80,14 @@ public sealed partial class DataFrame
         using (cancellationToken.Register(static state => ((NativeCancellationToken)state!).Cancel(), token))
         {
             int status = NativeMethods.df_dataframe_execute_stream_ipc(current, token.Handle, out NativeMethods.ByteBuffer buffer);
-            NativeMethods.CheckCancellable(status, cancellationToken);
+            NativeMethods.ThrowIfError(status, cancellationToken);
             return new ArrowBatchReader(NativeMethods.CopyAndFree(buffer));
         }
     }
 
     public byte[] SchemaIpc()
     {
-        EnsureOpen();
-        NativeMethods.Check(NativeMethods.df_dataframe_schema_ipc(handle, out NativeMethods.ByteBuffer buffer));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_schema_ipc(Handle, out NativeMethods.ByteBuffer buffer));
         return NativeMethods.CopyAndFree(buffer);
     }
 
@@ -96,8 +95,7 @@ public sealed partial class DataFrame
 
     public ulong Count()
     {
-        EnsureOpen();
-        NativeMethods.Check(NativeMethods.df_dataframe_count(handle, out ulong count));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_count(Handle, out ulong count));
         return count;
     }
 
@@ -105,7 +103,6 @@ public sealed partial class DataFrame
 
     public void Show(int limit)
     {
-        EnsureOpen();
-        NativeMethods.Check(NativeMethods.df_dataframe_show(handle, limit));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_show(Handle, limit));
     }
 }

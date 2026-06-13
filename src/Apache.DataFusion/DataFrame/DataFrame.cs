@@ -42,22 +42,29 @@ public sealed partial class DataFrame : IDisposable
         }
 
         handle = IntPtr.Zero;
-        NativeMethods.Check(NativeMethods.df_dataframe_free(current));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_free(current));
+    }
+
+    // Validates on every access so call sites can use the handle directly
+    // without a separate guard statement; throws once the DataFrame is closed
+    // or has been consumed by a terminal operation.
+    private IntPtr Handle
+    {
+        get
+        {
+            if (handle == IntPtr.Zero)
+            {
+                throw new ObjectDisposedException(nameof(DataFrame), "DataFrame is closed or already consumed.");
+            }
+
+            return handle;
+        }
     }
 
     private IntPtr TakeHandle()
     {
-        EnsureOpen();
-        IntPtr current = handle;
+        IntPtr current = Handle;
         handle = IntPtr.Zero;
         return current;
-    }
-
-    private void EnsureOpen()
-    {
-        if (handle == IntPtr.Zero)
-        {
-            throw new ObjectDisposedException(nameof(DataFrame), "DataFrame is closed or already consumed.");
-        }
     }
 }

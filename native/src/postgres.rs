@@ -15,15 +15,25 @@
 // specific language governing permissions and limitations
 // under the License.
 
+//! PostgreSQL table provider.
+//!
+//! A [`PostgresTableFactoryHandle`] owns the connection pool once it is built,
+//! so a single factory can register many tables without re-establishing a pool
+//! per table. Pool creation and per-table provider resolution both honour an
+//! optional cancellation token handle so the managed side can abort a slow
+//! connect/registration.
+
 use std::os::raw::{c_char, c_int};
 
-use crate::{cstr, require_ptr, take_result};
+use datafusion::prelude::SessionContext;
+
+use crate::{cstr, require_ptr, take_result, write_handle};
 
 #[cfg(feature = "postgres")]
 use std::{collections::HashMap, sync::Arc};
 
 #[cfg(feature = "postgres")]
-use datafusion::sql::TableReference;
+use datafusion::{error::DataFusionError, sql::TableReference};
 #[cfg(feature = "postgres")]
 use datafusion_table_providers::{
     postgres::PostgresTableFactory, sql::db_connection_pool::postgrespool::PostgresConnectionPool,
@@ -31,30 +41,69 @@ use datafusion_table_providers::{
 };
 
 #[cfg(feature = "postgres")]
-use crate::runtime;
+use crate::{
+    cancellation::{resolve_token, run_cancellable},
+    runtime,
+};
+
+/// Opaque handle returned to the managed side. Holds the pooled factory so
+/// repeated registrations reuse one connection pool.
+pub struct PostgresTableFactoryHandle {
+    #[cfg(feature = "postgres")]
+    factory: PostgresTableFactory,
+}
 
 #[no_mangle]
-pub extern "C" fn df_session_context_register_postgres_table(
-    handle: *mut datafusion::prelude::SessionContext,
-    registration_name: *const c_char,
+pub extern "C" fn df_postgres_table_factory_new(
     connection_string: *const c_char,
-    schema_name: *const c_char,
-    table_name: *const c_char,
+    token_handle: u64,
+    out: *mut *mut PostgresTableFactoryHandle,
 ) -> c_int {
     take_result(|| {
-        let ctx = unsafe { &*require_ptr(handle, "SessionContext handle")? };
-        let registration_name = cstr(registration_name, "registration_name")?;
         let connection_string = cstr(connection_string, "connection_string")?;
-        let table_name = cstr(table_name, "table_name")?;
+        let handle = create_postgres_table_factory(connection_string, token_handle)?;
+        write_handle(out, handle)
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn df_postgres_table_factory_register(
+    factory: *mut PostgresTableFactoryHandle,
+    context: *mut SessionContext,
+    registration_name: *const c_char,
+    schema_name: *const c_char,
+    table_name: *const c_char,
+    token_handle: u64,
+) -> c_int {
+    take_result(|| {
+        let factory = unsafe { &*require_ptr(factory, "PostgresTableFactory handle")? };
+        let ctx = unsafe { &*require_ptr(context, "SessionContext handle")? };
+        let registration_name = cstr(registration_name, "registration_name")?;
         let schema_name = optional_cstr(schema_name)?;
+        let table_name = cstr(table_name, "table_name")?;
 
         register_postgres_table(
+            factory,
             ctx,
             registration_name,
-            connection_string,
             schema_name,
             table_name,
+            token_handle,
         )
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn df_postgres_table_factory_free(
+    factory: *mut PostgresTableFactoryHandle,
+) -> c_int {
+    take_result(|| {
+        if !factory.is_null() {
+            unsafe {
+                drop(Box::from_raw(factory));
+            }
+        }
+        Ok(())
     })
 }
 
@@ -67,39 +116,71 @@ fn optional_cstr(ptr: *const c_char) -> crate::NativeResult<Option<String>> {
 }
 
 #[cfg(feature = "postgres")]
-fn register_postgres_table(
-    ctx: &datafusion::prelude::SessionContext,
-    registration_name: String,
+fn create_postgres_table_factory(
     connection_string: String,
-    schema_name: Option<String>,
-    table_name: String,
-) -> crate::NativeResult<()> {
-    let table_reference = match schema_name {
-        Some(schema) if !schema.is_empty() => TableReference::partial(schema, table_name),
-        _ => TableReference::bare(table_name),
-    };
-
+    token_handle: u64,
+) -> crate::NativeResult<PostgresTableFactoryHandle> {
+    let token = resolve_token(token_handle);
     let params = to_secret_map(HashMap::from([(
         "connection_string".to_string(),
         connection_string,
     )]));
-    let provider = runtime().block_on(async {
-        let pool = Arc::new(PostgresConnectionPool::new(params).await?);
-        let factory = PostgresTableFactory::new(pool);
-        factory.table_provider(table_reference).await
-    })?;
+    let pool = runtime().block_on(run_cancellable(&token, async move {
+        PostgresConnectionPool::new(params)
+            .await
+            .map_err(|e| DataFusionError::External(Box::new(e)))
+    }))?;
+    Ok(PostgresTableFactoryHandle {
+        factory: PostgresTableFactory::new(Arc::new(pool)),
+    })
+}
+
+#[cfg(feature = "postgres")]
+fn register_postgres_table(
+    handle: &PostgresTableFactoryHandle,
+    ctx: &SessionContext,
+    registration_name: String,
+    schema_name: Option<String>,
+    table_name: String,
+    token_handle: u64,
+) -> crate::NativeResult<()> {
+    let token = resolve_token(token_handle);
+    let table_reference = match schema_name {
+        Some(schema) if !schema.is_empty() => TableReference::partial(schema, table_name),
+        _ => TableReference::bare(table_name),
+    };
+    let provider = runtime().block_on(run_cancellable(&token, async move {
+        handle
+            .factory
+            .table_provider(table_reference)
+            .await
+            .map_err(|e| DataFusionError::External(Box::new(e)))
+    }))?;
 
     ctx.register_table(registration_name, provider)?;
     Ok(())
 }
 
 #[cfg(not(feature = "postgres"))]
-fn register_postgres_table(
-    _ctx: &datafusion::prelude::SessionContext,
-    _registration_name: String,
+fn create_postgres_table_factory(
     _connection_string: String,
+    _token_handle: u64,
+) -> crate::NativeResult<PostgresTableFactoryHandle> {
+    Err(
+        "datafusion_csharp_native was built without the `postgres` Cargo feature; \
+         rebuild the native crate with `--features postgres` to enable PostgreSQL table providers"
+            .into(),
+    )
+}
+
+#[cfg(not(feature = "postgres"))]
+fn register_postgres_table(
+    _handle: &PostgresTableFactoryHandle,
+    _ctx: &SessionContext,
+    _registration_name: String,
     _schema_name: Option<String>,
     _table_name: String,
+    _token_handle: u64,
 ) -> crate::NativeResult<()> {
     Err(
         "datafusion_csharp_native was built without the `postgres` Cargo feature; \
