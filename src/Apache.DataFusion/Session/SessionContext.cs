@@ -25,14 +25,14 @@ public sealed partial class SessionContext : IDisposable
 
     public SessionContext()
     {
-        NativeMethods.Check(NativeMethods.df_session_context_new(out handle));
+        NativeMethods.ThrowIfError(NativeMethods.df_session_context_new(out handle));
         EnsureNativeHandle();
     }
 
     internal SessionContext(byte[] optionsBytes)
     {
         using NativeByteArray options = new(optionsBytes);
-        NativeMethods.Check(NativeMethods.df_session_context_new_with_options(options.Pointer, options.Length, out handle));
+        NativeMethods.ThrowIfError(NativeMethods.df_session_context_new_with_options(options.Pointer, options.Length, out handle));
         EnsureNativeHandle();
     }
 
@@ -50,7 +50,7 @@ public sealed partial class SessionContext : IDisposable
         }
 
         handle = IntPtr.Zero;
-        NativeMethods.Check(NativeMethods.df_session_context_free(current));
+        NativeMethods.ThrowIfError(NativeMethods.df_session_context_free(current));
     }
 
     private void EnsureNativeHandle()
@@ -61,11 +61,20 @@ public sealed partial class SessionContext : IDisposable
         }
     }
 
-    private void EnsureOpen()
+    // Validates on every access so call sites can use the handle directly
+    // without a separate guard statement; throws once the context is disposed.
+    // Visible to table-provider factories in this assembly so they can register
+    // into the context.
+    internal IntPtr Handle
     {
-        if (handle == IntPtr.Zero)
+        get
         {
-            throw new ObjectDisposedException(nameof(SessionContext));
+            if (handle == IntPtr.Zero)
+            {
+                throw new ObjectDisposedException(nameof(SessionContext));
+            }
+
+            return handle;
         }
     }
 }

@@ -23,25 +23,22 @@ public sealed partial class DataFrame
 {
     public void WriteParquet(string path, string? compression = null, bool singleFileOutput = false)
     {
-        EnsureOpen();
         using NativeUtf8String nativePath = new(path);
         using NativeUtf8String? nativeCompression = compression is null ? null : new NativeUtf8String(compression);
-        NativeMethods.Check(NativeMethods.df_dataframe_write_parquet(handle, nativePath.Pointer, nativeCompression?.Pointer ?? IntPtr.Zero, singleFileOutput));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_write_parquet(Handle, nativePath.Pointer, nativeCompression?.Pointer ?? IntPtr.Zero, singleFileOutput));
     }
 
     public void WriteCsv(string path, CsvWriteOptions? options = null)
     {
-        EnsureOpen();
         using NativeUtf8String nativePath = new(path);
         using NativeByteArray nativeOptions = new((options ?? new CsvWriteOptions()).ToBytes());
-        NativeMethods.Check(NativeMethods.df_dataframe_write_csv(handle, nativePath.Pointer, nativeOptions.Pointer, nativeOptions.Length));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_write_csv(Handle, nativePath.Pointer, nativeOptions.Pointer, nativeOptions.Length));
     }
 
     public void WriteJson(string path, JsonWriteOptions? options = null)
     {
-        EnsureOpen();
         using NativeUtf8String nativePath = new(path);
         using NativeByteArray nativeOptions = new((options ?? new JsonWriteOptions()).ToBytes());
-        NativeMethods.Check(NativeMethods.df_dataframe_write_json(handle, nativePath.Pointer, nativeOptions.Pointer, nativeOptions.Length));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_write_json(Handle, nativePath.Pointer, nativeOptions.Pointer, nativeOptions.Length));
     }
 }

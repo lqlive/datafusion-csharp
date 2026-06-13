@@ -24,39 +24,33 @@ public sealed partial class DataFrame
     public DataFrame RepartitionRoundRobin(int partitions)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(partitions);
-        EnsureOpen();
-        NativeMethods.Check(NativeMethods.df_dataframe_repartition_round_robin(handle, (nuint)partitions, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_repartition_round_robin(Handle, (nuint)partitions, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 
     public DataFrame RepartitionHash(int partitions, params string[] columns)
     {
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(partitions);
-        EnsureOpen();
         using NativeStringArray nativeColumns = new(columns);
-        NativeMethods.Check(NativeMethods.df_dataframe_repartition_hash(handle, (nuint)partitions, nativeColumns.Native, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_repartition_hash(Handle, (nuint)partitions, nativeColumns.Native, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 
     public DataFrame Join(DataFrame right, JoinType joinType, string[] leftColumns, string[] rightColumns, string? filter = null)
     {
         ArgumentNullException.ThrowIfNull(right);
-        EnsureOpen();
-        right.EnsureOpen();
         using NativeStringArray leftNative = new(leftColumns);
         using NativeStringArray rightNative = new(rightColumns);
         using NativeUtf8String? filterNative = filter is null ? null : new NativeUtf8String(filter);
-        NativeMethods.Check(NativeMethods.df_dataframe_join(handle, right.handle, (byte)joinType, leftNative.Native, rightNative.Native, filterNative?.Pointer ?? IntPtr.Zero, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_join(Handle, right.Handle, (byte)joinType, leftNative.Native, rightNative.Native, filterNative?.Pointer ?? IntPtr.Zero, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 
     public DataFrame JoinOn(DataFrame right, JoinType joinType, params string[] predicates)
     {
         ArgumentNullException.ThrowIfNull(right);
-        EnsureOpen();
-        right.EnsureOpen();
         using NativeStringArray predicateNative = new(predicates);
-        NativeMethods.Check(NativeMethods.df_dataframe_join_on(handle, right.handle, (byte)joinType, predicateNative.Native, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_join_on(Handle, right.Handle, (byte)joinType, predicateNative.Native, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 }

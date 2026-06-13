@@ -24,17 +24,15 @@ public sealed partial class SessionContext
 {
     public byte[] TableSchemaIpc(string tableName)
     {
-        EnsureOpen();
         using NativeUtf8String name = new(tableName);
-        NativeMethods.Check(NativeMethods.df_session_context_table_schema_ipc(handle, name.Pointer, out NativeMethods.ByteBuffer buffer));
+        NativeMethods.ThrowIfError(NativeMethods.df_session_context_table_schema_ipc(Handle, name.Pointer, out NativeMethods.ByteBuffer buffer));
         return NativeMethods.CopyAndFree(buffer);
     }
 
     public string? GetOption(string key)
     {
-        EnsureOpen();
         using NativeUtf8String nativeKey = new(key);
-        NativeMethods.Check(NativeMethods.df_session_context_get_option(handle, nativeKey.Pointer, out IntPtr valuePtr));
+        NativeMethods.ThrowIfError(NativeMethods.df_session_context_get_option(Handle, nativeKey.Pointer, out IntPtr valuePtr));
         if (valuePtr == IntPtr.Zero)
         {
             return null;
@@ -52,8 +50,7 @@ public sealed partial class SessionContext
 
     public MemoryUsage GetMemoryUsage()
     {
-        EnsureOpen();
-        NativeMethods.Check(NativeMethods.df_session_context_memory_usage(handle, out NativeMethods.ByteBuffer buffer));
+        NativeMethods.ThrowIfError(NativeMethods.df_session_context_memory_usage(Handle, out NativeMethods.ByteBuffer buffer));
         ulong[] values = NativeMethods.CopyUInt64ArrayAndFree(buffer);
         if (values.Length != 2)
         {
@@ -68,8 +65,7 @@ public sealed partial class SessionContext
 
     public RuntimeStats GetRuntimeStats()
     {
-        EnsureOpen();
-        NativeMethods.Check(NativeMethods.df_session_context_runtime_stats(handle, out NativeMethods.ByteBuffer buffer));
+        NativeMethods.ThrowIfError(NativeMethods.df_session_context_runtime_stats(Handle, out NativeMethods.ByteBuffer buffer));
         long[] values = NativeMethods.CopyInt64ArrayAndFree(buffer);
         return Apache.DataFusion.RuntimeStats.FromNative(values);
     }

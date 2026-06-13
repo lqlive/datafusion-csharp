@@ -57,21 +57,19 @@ public sealed partial class SessionContext
 
     private void Register(string name, string path, IReadOptions options, RegisterNative native)
     {
-        EnsureOpen();
         using NativeUtf8String nativeName = new(name);
         using NativeUtf8String nativePath = new(path);
         using NativeByteArray nativeOptions = new(options.ToBytes());
         using NativeByteArray nativeSchema = new(options.SchemaIpc ?? []);
-        NativeMethods.Check(native(handle, nativeName.Pointer, nativePath.Pointer, nativeOptions.Pointer, nativeOptions.Length, nativeSchema.Pointer, nativeSchema.Length));
+        NativeMethods.ThrowIfError(native(Handle, nativeName.Pointer, nativePath.Pointer, nativeOptions.Pointer, nativeOptions.Length, nativeSchema.Pointer, nativeSchema.Length));
     }
 
     private DataFrame Read(string path, IReadOptions options, ReadNative native)
     {
-        EnsureOpen();
         using NativeUtf8String nativePath = new(path);
         using NativeByteArray nativeOptions = new(options.ToBytes());
         using NativeByteArray nativeSchema = new(options.SchemaIpc ?? []);
-        NativeMethods.Check(native(handle, nativePath.Pointer, nativeOptions.Pointer, nativeOptions.Length, nativeSchema.Pointer, nativeSchema.Length, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(native(Handle, nativePath.Pointer, nativeOptions.Pointer, nativeOptions.Length, nativeSchema.Pointer, nativeSchema.Length, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 }

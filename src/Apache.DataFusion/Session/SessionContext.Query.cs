@@ -23,27 +23,24 @@ public sealed partial class SessionContext
 {
     public DataFrame Sql(string query)
     {
-        EnsureOpen();
         using NativeUtf8String sql = new(query);
-        NativeMethods.Check(NativeMethods.df_session_context_sql(handle, sql.Pointer, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_session_context_sql(Handle, sql.Pointer, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 
     public DataFrame FromProto(byte[] planBytes)
     {
-        EnsureOpen();
         ArgumentNullException.ThrowIfNull(planBytes);
         using NativeByteArray plan = new(planBytes);
-        NativeMethods.Check(NativeMethods.df_session_context_from_proto(handle, plan.Pointer, plan.Length, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_session_context_from_proto(Handle, plan.Pointer, plan.Length, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 
     public DataFrame FromSubstrait(byte[] planBytes)
     {
-        EnsureOpen();
         ArgumentNullException.ThrowIfNull(planBytes);
         using NativeByteArray plan = new(planBytes);
-        NativeMethods.Check(NativeMethods.df_session_context_from_substrait(handle, plan.Pointer, plan.Length, out IntPtr dataFrame));
+        NativeMethods.ThrowIfError(NativeMethods.df_session_context_from_substrait(Handle, plan.Pointer, plan.Length, out IntPtr dataFrame));
         return new DataFrame(dataFrame);
     }
 }
