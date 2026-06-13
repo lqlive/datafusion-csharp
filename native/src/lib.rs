@@ -50,6 +50,7 @@ use tokio::runtime::Runtime;
 mod arrow;
 mod avro;
 mod cache_manager;
+mod cancellation;
 mod clickhouse;
 mod csv;
 mod json;
@@ -72,6 +73,7 @@ mod proto_gen {
 
 use crate::arrow::arrow_options;
 use crate::avro::avro_options;
+use crate::cancellation::{resolve_token, run_cancellable};
 use crate::csv::csv_options;
 use crate::json::json_options;
 use crate::parquet::parquet_options;
@@ -721,12 +723,14 @@ pub extern "C" fn df_dataframe_schema_ipc(handle: *mut DataFrame, out: *mut DfBy
 #[no_mangle]
 pub extern "C" fn df_dataframe_collect_ipc(
     handle: *mut DataFrame,
+    token_handle: u64,
     out: *mut DfByteBuffer,
 ) -> c_int {
     take_result(|| {
         let df = unsafe { *Box::from_raw(require_ptr(handle, "DataFrame handle")?) };
+        let token = resolve_token(token_handle);
         let schema: SchemaRef = Arc::new(df.schema().as_arrow().clone());
-        let batches = runtime().block_on(df.collect())?;
+        let batches = runtime().block_on(run_cancellable(&token, df.collect()))?;
         write_buffer(out, batches_ipc(schema, batches)?)
     })
 }
@@ -734,19 +738,21 @@ pub extern "C" fn df_dataframe_collect_ipc(
 #[no_mangle]
 pub extern "C" fn df_dataframe_execute_stream_ipc(
     handle: *mut DataFrame,
+    token_handle: u64,
     out: *mut DfByteBuffer,
 ) -> c_int {
     take_result(|| {
         let df = unsafe { *Box::from_raw(require_ptr(handle, "DataFrame handle")?) };
+        let token = resolve_token(token_handle);
         let schema: SchemaRef = Arc::new(df.schema().as_arrow().clone());
-        let mut stream = runtime().block_on(df.execute_stream())?;
-        let batches = runtime().block_on(async {
+        let batches = runtime().block_on(run_cancellable(&token, async move {
+            let mut stream = df.execute_stream().await?;
             let mut batches = Vec::new();
             while let Some(batch) = stream.next().await {
                 batches.push(batch?);
             }
             Ok::<_, DataFusionError>(batches)
-        })?;
+        }))?;
         write_buffer(out, batches_ipc(schema, batches)?)
     })
 }

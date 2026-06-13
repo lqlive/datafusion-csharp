@@ -28,10 +28,10 @@ internal static partial class NativeMethods
     internal static extern int df_dataframe_schema_ipc(IntPtr handle, out ByteBuffer buffer);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_dataframe_collect_ipc(IntPtr handle, out ByteBuffer buffer);
+    internal static extern int df_dataframe_collect_ipc(IntPtr handle, ulong tokenHandle, out ByteBuffer buffer);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_dataframe_execute_stream_ipc(IntPtr handle, out ByteBuffer buffer);
+    internal static extern int df_dataframe_execute_stream_ipc(IntPtr handle, ulong tokenHandle, out ByteBuffer buffer);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern int df_dataframe_count(IntPtr handle, out ulong count);

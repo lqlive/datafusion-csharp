@@ -22,23 +22,67 @@ namespace Apache.DataFusion;
 
 public sealed partial class DataFrame
 {
-    public ArrowBatchReader Collect()
+    public ArrowBatchReader Collect() => Collect(CancellationToken.None);
+
+    /// <summary>
+    /// Execute the plan with cooperative cancellation. Firing
+    /// <paramref name="cancellationToken"/> from another thread aborts the
+    /// in-flight query at its next poll point and throws
+    /// <see cref="OperationCanceledException"/>. A token that cannot be
+    /// cancelled (e.g. <see cref="CancellationToken.None"/>) behaves exactly
+    /// like the parameterless overload.
+    /// </summary>
+    public ArrowBatchReader Collect(CancellationToken cancellationToken)
     {
-        return new ArrowBatchReader(CollectIpcBytes());
+        return new ArrowBatchReader(CollectIpcBytes(cancellationToken));
     }
 
-    internal byte[] CollectIpcBytes()
+    internal byte[] CollectIpcBytes() => CollectIpcBytes(CancellationToken.None);
+
+    internal byte[] CollectIpcBytes(CancellationToken cancellationToken)
     {
         IntPtr current = TakeHandle();
-        NativeMethods.Check(NativeMethods.df_dataframe_collect_ipc(current, out NativeMethods.ByteBuffer buffer));
-        return NativeMethods.CopyAndFree(buffer);
+        if (!cancellationToken.CanBeCanceled)
+        {
+            NativeMethods.Check(NativeMethods.df_dataframe_collect_ipc(current, 0UL, out NativeMethods.ByteBuffer buffer));
+            return NativeMethods.CopyAndFree(buffer);
+        }
+
+        using NativeCancellationToken token = NativeCancellationToken.Create();
+        using (cancellationToken.Register(static state => ((NativeCancellationToken)state!).Cancel(), token))
+        {
+            int status = NativeMethods.df_dataframe_collect_ipc(current, token.Handle, out NativeMethods.ByteBuffer buffer);
+            NativeMethods.CheckCancellable(status, cancellationToken);
+            return NativeMethods.CopyAndFree(buffer);
+        }
     }
 
-    public ArrowBatchReader ExecuteStream()
+    public ArrowBatchReader ExecuteStream() => ExecuteStream(CancellationToken.None);
+
+    /// <summary>
+    /// Execute the plan and materialize the result with cooperative
+    /// cancellation. Firing <paramref name="cancellationToken"/> from another
+    /// thread aborts the in-flight query at its next poll point and throws
+    /// <see cref="OperationCanceledException"/>. A token that cannot be
+    /// cancelled (e.g. <see cref="CancellationToken.None"/>) behaves exactly
+    /// like the parameterless overload.
+    /// </summary>
+    public ArrowBatchReader ExecuteStream(CancellationToken cancellationToken)
     {
         IntPtr current = TakeHandle();
-        NativeMethods.Check(NativeMethods.df_dataframe_execute_stream_ipc(current, out NativeMethods.ByteBuffer buffer));
-        return new ArrowBatchReader(NativeMethods.CopyAndFree(buffer));
+        if (!cancellationToken.CanBeCanceled)
+        {
+            NativeMethods.Check(NativeMethods.df_dataframe_execute_stream_ipc(current, 0UL, out NativeMethods.ByteBuffer buffer));
+            return new ArrowBatchReader(NativeMethods.CopyAndFree(buffer));
+        }
+
+        using NativeCancellationToken token = NativeCancellationToken.Create();
+        using (cancellationToken.Register(static state => ((NativeCancellationToken)state!).Cancel(), token))
+        {
+            int status = NativeMethods.df_dataframe_execute_stream_ipc(current, token.Handle, out NativeMethods.ByteBuffer buffer);
+            NativeMethods.CheckCancellable(status, cancellationToken);
+            return new ArrowBatchReader(NativeMethods.CopyAndFree(buffer));
+        }
     }
 
     public byte[] SchemaIpc()
