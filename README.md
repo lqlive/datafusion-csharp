@@ -131,6 +131,7 @@ Each scenario is an independent, runnable console project under `examples/`:
 | `Apache.DataFusion.Sample.TableProvider` | In-memory table via `SimpleTableProvider` |
 | `Apache.DataFusion.Sample.Streaming` | Stream Arrow batches and read typed columns |
 | `Apache.DataFusion.Sample.SessionConfig` | Configure the session builder + observability |
+| `Apache.DataFusion.Sample.Excel` | Read an `.xlsx` spreadsheet and run a SQL query |
 
 Run any of them with:
 
@@ -142,7 +143,8 @@ dotnet run --project examples/Apache.DataFusion.Sample.Sql
 
 - **`SessionContext`**: SQL execution, configured builder (`CreateBuilder`), `GetOption`,
   memory usage, runtime stats (feature-gated), object-store registration, external table
-  provider registration, and register/read for Parquet, CSV, JSON, Arrow IPC, and Avro.
+  provider registration, and register/read for Parquet, CSV, JSON, Arrow IPC, Avro, and
+  Excel/ODS spreadsheets (`RegisterExcel`/`ReadExcel`, via the native `calamine` parser).
 - **`DataFrame`**: `Collect`, `ExecuteStream`, `Count`, `Show`, strong Arrow schema access,
   schema IPC, `Explain`/`Cache`/`Describe`, and projection/filter/limit/distinct/drop/
   rename/with-column/unnest transformations.
@@ -174,6 +176,10 @@ compiled in returns a clear native error message.
 | MongoDB | `mongodb` |
 | ClickHouse | `clickhouse` |
 | SQLite | `sqlite` |
+
+Excel/ODS reading uses the lightweight `calamine` parser and is gated behind the `excel`
+feature, which is **enabled by default**. Drop it with `--no-default-features` if you do not
+need spreadsheet support.
 
 ### External table providers
 

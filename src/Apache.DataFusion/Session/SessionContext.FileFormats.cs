@@ -51,6 +51,12 @@ public sealed partial class SessionContext
     public DataFrame ReadAvro(string path, AvroReadOptions? options = null) =>
         Read(path, options ?? new AvroReadOptions(), NativeMethods.df_session_context_read_avro);
 
+    public void RegisterExcel(string name, string path, ExcelReadOptions? options = null) =>
+        Register(name, path, options ?? new ExcelReadOptions(), NativeMethods.df_session_context_register_excel);
+
+    public DataFrame ReadExcel(string path, ExcelReadOptions? options = null) =>
+        Read(path, options ?? new ExcelReadOptions(), NativeMethods.df_session_context_read_excel);
+
     private delegate int RegisterNative(IntPtr context, IntPtr name, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen);
 
     private delegate int ReadNative(IntPtr context, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);

@@ -55,6 +55,7 @@ mod cache_manager;
 mod cancellation;
 mod clickhouse;
 mod csv;
+mod excel;
 mod json;
 mod memory;
 mod mongodb;
@@ -700,6 +701,48 @@ read_register_format!(
     register_avro,
     read_avro
 );
+
+#[no_mangle]
+pub extern "C" fn df_session_context_register_excel(
+    handle: *mut datafusion::prelude::SessionContext,
+    name: *const c_char,
+    path: *const c_char,
+    options_ptr: *const u8,
+    options_len: usize,
+    schema_ptr: *const u8,
+    schema_len: usize,
+) -> c_int {
+    take_result(|| {
+        let ctx = unsafe { &*require_ptr(handle, "SessionContext handle")? };
+        let name = cstr(name, "name")?;
+        let path = cstr(path, "path")?;
+        let (schema, batches) =
+            excel::read_excel(&path, options_ptr, options_len, schema_ptr, schema_len)?;
+        let table = datafusion::datasource::MemTable::try_new(schema, vec![batches])?;
+        ctx.register_table(name, Arc::new(table))?;
+        Ok(())
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn df_session_context_read_excel(
+    handle: *mut datafusion::prelude::SessionContext,
+    path: *const c_char,
+    options_ptr: *const u8,
+    options_len: usize,
+    schema_ptr: *const u8,
+    schema_len: usize,
+    out: *mut *mut DataFrame,
+) -> c_int {
+    take_result(|| {
+        let ctx = unsafe { &*require_ptr(handle, "SessionContext handle")? };
+        let path = cstr(path, "path")?;
+        let (schema, batches) =
+            excel::read_excel(&path, options_ptr, options_len, schema_ptr, schema_len)?;
+        let table = datafusion::datasource::MemTable::try_new(schema, vec![batches])?;
+        write_handle(out, ctx.read_table(Arc::new(table))?)
+    })
+}
 
 #[no_mangle]
 pub extern "C" fn df_dataframe_free(handle: *mut DataFrame) -> c_int {
