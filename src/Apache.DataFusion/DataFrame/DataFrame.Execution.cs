@@ -75,6 +75,29 @@ public sealed partial class DataFrame
     }
 
     /// <summary>
+    /// Execute the plan without blocking the calling thread. The native query
+    /// driver is synchronous, so the work is offloaded to the thread pool;
+    /// <paramref name="cancellationToken"/> both prevents the work from starting
+    /// once already cancelled and aborts the in-flight query at its next native
+    /// poll point (throwing <see cref="OperationCanceledException"/>), matching
+    /// the synchronous <see cref="Collect(CancellationToken)"/> overload.
+    /// </summary>
+    public Task<ArrowBatchReader> CollectAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => Collect(cancellationToken), cancellationToken);
+    }
+
+    /// <summary>
+    /// Execute the plan and materialize the result without blocking the calling
+    /// thread. See <see cref="CollectAsync"/> for the threading and cancellation
+    /// semantics; this mirrors <see cref="ExecuteStream(CancellationToken)"/>.
+    /// </summary>
+    public Task<ArrowBatchReader> ExecuteStreamAsync(CancellationToken cancellationToken = default)
+    {
+        return Task.Run(() => ExecuteStream(cancellationToken), cancellationToken);
+    }
+
+    /// <summary>
     /// Run a native exporter that fills an Arrow C Data Interface stream and
     /// import it as a managed reader. The native call fully drives the query
     /// (honouring <paramref name="cancellationToken"/>), then hands the
