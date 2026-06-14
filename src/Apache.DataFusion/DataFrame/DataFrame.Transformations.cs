@@ -87,6 +87,23 @@ public sealed partial class DataFrame
         return new DataFrame(dataFrame);
     }
 
+    /// <summary>
+    /// Group the rows by zero or more grouping expressions and compute the
+    /// supplied aggregate expressions. Each entry is a SQL expression evaluated
+    /// against this frame's schema, e.g. grouping by <c>"category"</c> with
+    /// aggregates <c>"sum(amount)"</c> and <c>"count(*)"</c>. Passing an empty
+    /// <paramref name="groupExpressions"/> computes a single global aggregate.
+    /// </summary>
+    public DataFrame Aggregate(IEnumerable<string> groupExpressions, IEnumerable<string> aggregateExpressions)
+    {
+        ArgumentNullException.ThrowIfNull(groupExpressions);
+        ArgumentNullException.ThrowIfNull(aggregateExpressions);
+        using NativeStringArray nativeGroup = new(groupExpressions);
+        using NativeStringArray nativeAggregate = new(aggregateExpressions);
+        NativeMethods.ThrowIfError(NativeMethods.df_dataframe_aggregate(Handle, nativeGroup.Native, nativeAggregate.Native, out IntPtr dataFrame));
+        return new DataFrame(dataFrame);
+    }
+
     public DataFrame Sort(params SortExpr[] expressions)
     {
         string[] names = expressions.Select(expr => expr.ColumnName).ToArray();

@@ -977,6 +977,29 @@ pub extern "C" fn df_dataframe_with_column(
 }
 
 #[no_mangle]
+pub extern "C" fn df_dataframe_aggregate(
+    handle: *mut DataFrame,
+    group_expr: DfStringArray,
+    aggr_expr: DfStringArray,
+    out: *mut *mut DataFrame,
+) -> c_int {
+    take_result(|| {
+        let df = unsafe { &*require_ptr(handle, "DataFrame handle")? }.clone();
+        let group_owned = strings(group_expr)?;
+        let aggr_owned = strings(aggr_expr)?;
+        let group = group_owned
+            .iter()
+            .map(|sql| df.parse_sql_expr(sql))
+            .collect::<Result<Vec<_>, _>>()?;
+        let aggr = aggr_owned
+            .iter()
+            .map(|sql| df.parse_sql_expr(sql))
+            .collect::<Result<Vec<_>, _>>()?;
+        write_df(out, df.aggregate(group, aggr)?)
+    })
+}
+
+#[no_mangle]
 pub extern "C" fn df_dataframe_unnest_columns(
     handle: *mut DataFrame,
     columns: DfStringArray,

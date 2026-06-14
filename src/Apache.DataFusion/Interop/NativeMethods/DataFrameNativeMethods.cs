@@ -76,6 +76,9 @@ internal static partial class NativeMethods
     internal static extern int df_dataframe_with_column(IntPtr handle, IntPtr name, IntPtr expression, out IntPtr dataFrame);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern int df_dataframe_aggregate(IntPtr handle, StringArray groupExpressions, StringArray aggregateExpressions, out IntPtr dataFrame);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern int df_dataframe_unnest_columns(IntPtr handle, StringArray columns, [MarshalAs(UnmanagedType.I1)] bool preserveNulls, out IntPtr dataFrame);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
