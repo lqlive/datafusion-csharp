@@ -22,28 +22,46 @@ namespace Apache.DataFusion;
 
 public enum ArrowBatchReaderTransport
 {
+    /// <summary>Batches are decoded from an Arrow IPC byte stream.</summary>
     ArrowIpcFallback,
+
+    /// <summary>
+    /// Batches are handed over through the Arrow C Data Interface, sharing the
+    /// native buffers directly without an IPC serialize/deserialize round-trip.
+    /// </summary>
+    CDataInterface,
 }
 
 public sealed class ArrowBatchReader : IDisposable
 {
-    private readonly MemoryStream stream;
-    private readonly ArrowStreamReader reader;
+    private readonly Func<CancellationToken, ValueTask<RecordBatch?>> readNext;
+    private readonly Action dispose;
+    private readonly ArrowBatchReaderTransport transport;
 
     internal ArrowBatchReader(byte[] ipcBytes)
     {
-        stream = new MemoryStream(ipcBytes, writable: false);
-        reader = new ArrowStreamReader(stream);
+        MemoryStream stream = new(ipcBytes, writable: false);
+        ArrowStreamReader reader = new(stream);
+        readNext = reader.ReadNextRecordBatchAsync;
+        dispose = () =>
+        {
+            reader.Dispose();
+            stream.Dispose();
+        };
+        transport = ArrowBatchReaderTransport.ArrowIpcFallback;
     }
 
-    public ArrowBatchReaderTransport Transport => ArrowBatchReaderTransport.ArrowIpcFallback;
+    internal ArrowBatchReader(IArrowArrayStream stream)
+    {
+        readNext = stream.ReadNextRecordBatchAsync;
+        dispose = stream.Dispose;
+        transport = ArrowBatchReaderTransport.CDataInterface;
+    }
+
+    public ArrowBatchReaderTransport Transport => transport;
 
     public ValueTask<RecordBatch?> ReadNextRecordBatchAsync(CancellationToken cancellationToken = default) =>
-        reader.ReadNextRecordBatchAsync(cancellationToken);
+        readNext(cancellationToken);
 
-    public void Dispose()
-    {
-        reader.Dispose();
-        stream.Dispose();
-    }
+    public void Dispose() => dispose();
 }

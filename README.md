@@ -255,7 +255,9 @@ Supported RIDs: `win-x64`, `linux-x64`, `linux-arm64`, `linux-musl-x64`,
 
 ## Notes and limitations
 
-`Collect` and `ExecuteStream` currently return Arrow IPC-backed readers on the C# side, and
-`ArrowBatchReader.Transport` reports `ArrowIpcFallback`. The native C ABI is structured so a
-direct Arrow C Data Interface path can be added later, once the target C# Arrow package
-exposes the required stable API.
+`Collect` and `ExecuteStream` hand results to the C# side through the Arrow C Data Interface:
+the native engine fully drives the query (honouring the optional `CancellationToken`) and then
+shares the materialized record-batch buffers directly, so `ArrowBatchReader.Transport` reports
+`CDataInterface` and no Arrow IPC serialize/deserialize round-trip is paid. The Arrow IPC path
+is retained internally as a fallback (for example, `SimpleTableProvider` still consumes IPC
+bytes).
