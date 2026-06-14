@@ -29,8 +29,10 @@ use std::os::raw::{c_char, c_int, c_uchar};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::{Arc, OnceLock};
 
+use ::arrow::array::{RecordBatch, RecordBatchIterator};
 use ::arrow::datatypes::SchemaRef;
 use ::arrow::error::ArrowError;
+use ::arrow::ffi_stream::FFI_ArrowArrayStream;
 use datafusion::common::config::{CsvOptions, JsonOptions};
 use datafusion::common::parsers::CompressionTypeVariant;
 use datafusion::common::{JoinType, UnnestOptions};
@@ -754,6 +756,68 @@ pub extern "C" fn df_dataframe_execute_stream_ipc(
             Ok::<_, DataFusionError>(batches)
         }))?;
         write_buffer(out, batches_ipc(schema, batches)?)
+    })
+}
+
+/// Export already-materialized batches through the caller-provided Arrow C
+/// Data Interface stream pointer. Ownership of the batch buffers moves to the
+/// `FFI_ArrowArrayStream`; the managed side releases them via the stream's
+/// release callback once it finishes reading. This avoids the IPC
+/// serialize/deserialize round-trip the `*_ipc` variants pay.
+fn export_batches(
+    out: *mut FFI_ArrowArrayStream,
+    schema: SchemaRef,
+    batches: Vec<RecordBatch>,
+) -> NativeResult<()> {
+    if out.is_null() {
+        return Err("output stream pointer is null".into());
+    }
+    let batches = batches
+        .into_iter()
+        .map(Ok::<RecordBatch, ArrowError>)
+        .collect::<Vec<_>>();
+    let reader = RecordBatchIterator::new(batches, schema);
+    let stream = FFI_ArrowArrayStream::new(Box::new(reader));
+    unsafe {
+        std::ptr::write(out, stream);
+    }
+    Ok(())
+}
+
+#[no_mangle]
+pub extern "C" fn df_dataframe_collect_cdata(
+    handle: *mut DataFrame,
+    token_handle: u64,
+    out: *mut FFI_ArrowArrayStream,
+) -> c_int {
+    take_result(|| {
+        let df = unsafe { *Box::from_raw(require_ptr(handle, "DataFrame handle")?) };
+        let token = resolve_token(token_handle);
+        let schema: SchemaRef = Arc::new(df.schema().as_arrow().clone());
+        let batches = runtime().block_on(run_cancellable(&token, df.collect()))?;
+        export_batches(out, schema, batches)
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn df_dataframe_execute_stream_cdata(
+    handle: *mut DataFrame,
+    token_handle: u64,
+    out: *mut FFI_ArrowArrayStream,
+) -> c_int {
+    take_result(|| {
+        let df = unsafe { *Box::from_raw(require_ptr(handle, "DataFrame handle")?) };
+        let token = resolve_token(token_handle);
+        let schema: SchemaRef = Arc::new(df.schema().as_arrow().clone());
+        let batches = runtime().block_on(run_cancellable(&token, async move {
+            let mut stream = df.execute_stream().await?;
+            let mut batches = Vec::new();
+            while let Some(batch) = stream.next().await {
+                batches.push(batch?);
+            }
+            Ok::<_, DataFusionError>(batches)
+        }))?;
+        export_batches(out, schema, batches)
     })
 }
 

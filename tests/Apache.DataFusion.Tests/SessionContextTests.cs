@@ -45,7 +45,7 @@ public sealed class SessionContextTests
         using SessionContext context = new();
         using DataFrame dataFrame = context.Sql("SELECT 1 AS value UNION ALL SELECT 2 AS value");
         using ArrowBatchReader reader = dataFrame.ExecuteStream();
-        Assert.Equal(ArrowBatchReaderTransport.ArrowIpcFallback, reader.Transport);
+        Assert.Equal(ArrowBatchReaderTransport.CDataInterface, reader.Transport);
 
         long rows = 0;
         Apache.Arrow.RecordBatch? batch;
