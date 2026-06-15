@@ -173,6 +173,7 @@ without the matching feature compiled in returns a clear native error message.
 | Capability | Cargo feature(s) |
 | --- | --- |
 | Object stores | `object-store-aws`, `object-store-gcp`, `object-store-http` |
+| Vendored OpenSSL for native TLS | `openssl-vendored` |
 | Substrait plan exchange | `substrait` |
 | Runtime metrics | `runtime-metrics` |
 
@@ -180,6 +181,8 @@ Excel/ODS reading uses the lightweight `calamine` parser and is gated behind the
 feature, which is enabled by default. PostgreSQL, MySQL, MongoDB, ClickHouse, and SQLite
 table providers are also enabled by default. Drop default features with
 `--no-default-features` only when you intentionally want a smaller custom native build.
+The PostgreSQL, MySQL, MongoDB, and ClickHouse provider features enable vendored OpenSSL
+so Windows/MSVC builds do not require a system OpenSSL installation.
 
 ### External table providers
 
