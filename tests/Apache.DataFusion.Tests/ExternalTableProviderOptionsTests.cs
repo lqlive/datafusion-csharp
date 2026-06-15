@@ -43,43 +43,4 @@ public sealed class ExternalTableProviderOptionsTests
         Assert.Throws<ArgumentException>(() => new SqliteTableOptions("", "companies"));
     }
 
-    [Theory]
-    [InlineData("mysql")]
-    [InlineData("mongodb")]
-    [InlineData("clickhouse")]
-    [InlineData("sqlite")]
-    public void RegisterExternalProviderSurfacesFeatureGateWhenDisabled(string provider)
-    {
-        using SessionContext ctx = new();
-
-        DataFusionException exception = Assert.Throws<DataFusionException>(() =>
-        {
-            switch (provider)
-            {
-                case "mysql":
-                    ctx.RegisterMySql(
-                        "companies",
-                        new MySqlTableOptions("mysql://root:password@localhost:3306/mysql_db", "companies"));
-                    break;
-                case "mongodb":
-                    ctx.RegisterMongoDb(
-                        "companies",
-                        new MongoDbTableOptions("mongodb://root:password@localhost:27017/mongo_db", "companies"));
-                    break;
-                case "clickhouse":
-                    ctx.RegisterClickHouse(
-                        "reports",
-                        new ClickHouseTableOptions("http://localhost:8123", "Reports"));
-                    break;
-                case "sqlite":
-                    ctx.RegisterSqlite(
-                        "companies",
-                        new SqliteTableOptions("example.db", "companies"));
-                    break;
-            }
-        });
-
-        Assert.Contains(provider, exception.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("feature", exception.Message, StringComparison.OrdinalIgnoreCase);
-    }
 }

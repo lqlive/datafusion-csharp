@@ -12,7 +12,7 @@ name = "datafusion_csharp_native"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-default = ["excel"]
+default = ["excel", "postgres", "mysql", "mongodb", "clickhouse", "sqlite"]
 excel = ["dep:calamine"]
 object-store-aws = ["object_store/aws"]
 object-store-gcp = ["object_store/gcp"]
