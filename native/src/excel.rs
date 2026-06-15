@@ -46,15 +46,20 @@ pub(crate) fn read_excel(
     schema_len: usize,
 ) -> NativeResult<(SchemaRef, Vec<RecordBatch>)> {
     if decode_optional_schema(schema_ptr, schema_len)?.is_some() {
-        return Err("explicit schema override is not supported for Excel reads yet; \
+        return Err(
+            "explicit schema override is not supported for Excel reads yet; \
                     column types are inferred from the sheet"
-            .into());
+                .into(),
+        );
     }
     read_excel_impl(path, decode_options(options_ptr, options_len)?)
 }
 
 #[cfg(feature = "excel")]
-fn read_excel_impl(path: &str, options: ExcelOptions) -> NativeResult<(SchemaRef, Vec<RecordBatch>)> {
+fn read_excel_impl(
+    path: &str,
+    options: ExcelOptions,
+) -> NativeResult<(SchemaRef, Vec<RecordBatch>)> {
     imp::read_workbook(path, options)
 }
 
