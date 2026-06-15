@@ -31,21 +31,4 @@ public sealed class PostgresTableOptionsTests
         Assert.Throws<ArgumentException>(() => new PostgresTableOptions("host=localhost", ""));
     }
 
-    [Fact]
-    public void RegisterPostgresSurfacesFeatureGateWhenDisabled()
-    {
-        using SessionContext ctx = new();
-        PostgresTableOptions options = new(
-            "host=localhost port=5432 dbname=postgres user=postgres password=password sslmode=disable",
-            "companies")
-        {
-            SchemaName = "public",
-        };
-
-        DataFusionException exception = Assert.Throws<DataFusionException>(() =>
-            ctx.RegisterPostgres("companies", options));
-
-        Assert.Contains("postgres", exception.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains("feature", exception.Message, StringComparison.OrdinalIgnoreCase);
-    }
 }

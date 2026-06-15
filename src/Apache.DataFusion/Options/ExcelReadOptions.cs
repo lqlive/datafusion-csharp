@@ -15,32 +15,36 @@
 // specific language governing permissions and limitations
 // under the License.
 
-namespace Apache.DataFusion.Tests;
+using Google.Protobuf;
 
-public sealed class ExternalTableProviderOptionsTests
+namespace Apache.DataFusion;
+
+public sealed class ExcelReadOptions : IReadOptions
 {
-    [Fact]
-    public void MySqlRequiresConnectionString()
-    {
-        Assert.Throws<ArgumentException>(() => new MySqlTableOptions("", "companies"));
-    }
+    byte[]? IReadOptions.SchemaIpc => null;
 
-    [Fact]
-    public void MongoDbRequiresCollectionName()
-    {
-        Assert.Throws<ArgumentException>(() => new MongoDbTableOptions("mongodb://localhost:27017/db", ""));
-    }
+    public bool HasHeader { get; set; } = true;
 
-    [Fact]
-    public void ClickHouseRequiresUrl()
-    {
-        Assert.Throws<ArgumentException>(() => new ClickHouseTableOptions("", "Reports"));
-    }
+    public string? SheetName { get; set; }
 
-    [Fact]
-    public void SqliteRequiresPath()
-    {
-        Assert.Throws<ArgumentException>(() => new SqliteTableOptions("", "companies"));
-    }
+    public ulong? SchemaInferMaxRecords { get; set; }
 
+    public byte[] ToBytes()
+    {
+        Proto.ExcelReadOptionsProto proto = new()
+        {
+            HasHeader = HasHeader,
+        };
+        if (SheetName is not null)
+        {
+            proto.SheetName = SheetName;
+        }
+
+        if (SchemaInferMaxRecords.HasValue)
+        {
+            proto.SchemaInferMaxRecords = SchemaInferMaxRecords.Value;
+        }
+
+        return proto.ToByteArray();
+    }
 }

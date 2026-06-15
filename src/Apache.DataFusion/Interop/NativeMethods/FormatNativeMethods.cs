@@ -50,4 +50,10 @@ internal static partial class NativeMethods
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
     internal static extern int df_session_context_read_avro(IntPtr handle, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern int df_session_context_register_excel(IntPtr handle, IntPtr name, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern int df_session_context_read_excel(IntPtr handle, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);
 }

@@ -107,7 +107,7 @@ fn create_sqlite_table_factory(
         SqliteConnectionPoolFactory::new(&path, Mode::File, Duration::from_millis(busy_timeout_ms))
             .build()
             .await
-            .map_err(|e| DataFusionError::External(Box::new(e)))
+            .map_err(DataFusionError::External)
     }))?;
     Ok(SqliteTableFactoryHandle {
         factory: SqliteTableFactory::new(Arc::new(pool)),
@@ -128,7 +128,7 @@ fn register_sqlite_table(
             .factory
             .table_provider(TableReference::bare(table_name))
             .await
-            .map_err(|e| DataFusionError::External(Box::new(e)))
+            .map_err(DataFusionError::External)
     }))?;
 
     ctx.register_table(registration_name, provider)?;

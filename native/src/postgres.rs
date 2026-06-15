@@ -154,7 +154,7 @@ fn register_postgres_table(
             .factory
             .table_provider(table_reference)
             .await
-            .map_err(|e| DataFusionError::External(Box::new(e)))
+            .map_err(DataFusionError::External)
     }))?;
 
     ctx.register_table(registration_name, provider)?;

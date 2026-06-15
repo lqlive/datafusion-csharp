@@ -13,6 +13,7 @@
     <Project Path="examples\Apache.DataFusion.Sample.Streaming\Apache.DataFusion.Sample.Streaming.csproj" />
     <Project Path="examples\Apache.DataFusion.Sample.SessionConfig\Apache.DataFusion.Sample.SessionConfig.csproj" />
     <Project Path="examples\Apache.DataFusion.Sample.ParquetBenchmark\Apache.DataFusion.Sample.ParquetBenchmark.csproj" />
+    <Project Path="examples\Apache.DataFusion.Sample.Excel\Apache.DataFusion.Sample.Excel.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests\Apache.DataFusion.Tests\Apache.DataFusion.Tests.csproj" />

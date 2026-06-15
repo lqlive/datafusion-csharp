@@ -79,11 +79,12 @@ cd native
 cargo build
 ```
 
-Optional native features are opt-in via Cargo features (see
-[Optional native features](#optional-native-features)):
+The default native build includes Excel/ODS reading and the database table providers
+for PostgreSQL, MySQL, MongoDB, ClickHouse, and SQLite. Extra native integrations are
+opt-in via Cargo features (see [Optional native features](#optional-native-features)):
 
 ```powershell
-cargo build --features "postgres mysql mongodb clickhouse sqlite"
+cargo build --features "object-store-aws object-store-gcp object-store-http"
 ```
 
 Then build and test the .NET solution:
@@ -131,6 +132,7 @@ Each scenario is an independent, runnable console project under `examples/`:
 | `Apache.DataFusion.Sample.TableProvider` | In-memory table via `SimpleTableProvider` |
 | `Apache.DataFusion.Sample.Streaming` | Stream Arrow batches and read typed columns |
 | `Apache.DataFusion.Sample.SessionConfig` | Configure the session builder + observability |
+| `Apache.DataFusion.Sample.Excel` | Read an `.xlsx` spreadsheet and run a SQL query |
 
 Run any of them with:
 
@@ -142,7 +144,8 @@ dotnet run --project examples/Apache.DataFusion.Sample.Sql
 
 - **`SessionContext`**: SQL execution, configured builder (`CreateBuilder`), `GetOption`,
   memory usage, runtime stats (feature-gated), object-store registration, external table
-  provider registration, and register/read for Parquet, CSV, JSON, Arrow IPC, and Avro.
+  provider registration, and register/read for Parquet, CSV, JSON, Arrow IPC, Avro, and
+  Excel/ODS spreadsheets (`RegisterExcel`/`ReadExcel`, via the native `calamine` parser).
 - **`DataFrame`**: `Collect`, `ExecuteStream`, `Count`, `Show`, strong Arrow schema access,
   schema IPC, `Explain`/`Cache`/`Describe`, and projection/filter/limit/distinct/drop/
   rename/with-column/unnest transformations.
@@ -162,18 +165,24 @@ dotnet run --project examples/Apache.DataFusion.Sample.Sql
 
 ## Optional native features
 
-Heavier integrations are gated behind Cargo features and **disabled by default** so the
-base native library stays small. Calling one of these APIs without the matching feature
-compiled in returns a clear native error message.
+The default native build includes the spreadsheet reader and database table providers.
+Some extra integrations are still gated behind Cargo features so the base native
+library does not pull in every backend-specific dependency. Calling one of these APIs
+without the matching feature compiled in returns a clear native error message.
 
 | Capability | Cargo feature(s) |
 | --- | --- |
 | Object stores | `object-store-aws`, `object-store-gcp`, `object-store-http` |
-| PostgreSQL | `postgres` |
-| MySQL | `mysql` |
-| MongoDB | `mongodb` |
-| ClickHouse | `clickhouse` |
-| SQLite | `sqlite` |
+| Vendored OpenSSL for native TLS | `openssl-vendored` |
+| Substrait plan exchange | `substrait` |
+| Runtime metrics | `runtime-metrics` |
+
+Excel/ODS reading uses the lightweight `calamine` parser and is gated behind the `excel`
+feature, which is enabled by default. PostgreSQL, MySQL, MongoDB, ClickHouse, and SQLite
+table providers are also enabled by default. Drop default features with
+`--no-default-features` only when you intentionally want a smaller custom native build.
+The PostgreSQL, MySQL, MongoDB, and ClickHouse provider features enable vendored OpenSSL
+so Windows/MSVC builds do not require a system OpenSSL installation.
 
 ### External table providers
 
