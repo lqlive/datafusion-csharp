@@ -125,7 +125,7 @@ fn create_mysql_table_factory(
     let pool = runtime().block_on(run_cancellable(&token, async move {
         MySQLConnectionPool::new(params)
             .await
-            .map_err(|e| DataFusionError::External(Box::new(e)))
+            .map_err(|e| DataFusionError::External(e))
     }))?;
     Ok(MySqlTableFactoryHandle {
         factory: MySQLTableFactory::new(Arc::new(pool)),
@@ -151,7 +151,7 @@ fn register_mysql_table(
             .factory
             .table_provider(table_reference)
             .await
-            .map_err(|e| DataFusionError::External(Box::new(e)))
+            .map_err(|e| DataFusionError::External(e))
     }))?;
 
     ctx.register_table(registration_name, provider)?;

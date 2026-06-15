@@ -128,7 +128,7 @@ fn create_postgres_table_factory(
     let pool = runtime().block_on(run_cancellable(&token, async move {
         PostgresConnectionPool::new(params)
             .await
-            .map_err(|e| DataFusionError::External(Box::new(e)))
+            .map_err(|e| DataFusionError::External(e))
     }))?;
     Ok(PostgresTableFactoryHandle {
         factory: PostgresTableFactory::new(Arc::new(pool)),
@@ -154,7 +154,7 @@ fn register_postgres_table(
             .factory
             .table_provider(table_reference)
             .await
-            .map_err(|e| DataFusionError::External(Box::new(e)))
+            .map_err(|e| DataFusionError::External(e))
     }))?;
 
     ctx.register_table(registration_name, provider)?;
