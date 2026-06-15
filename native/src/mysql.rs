@@ -125,7 +125,7 @@ fn create_mysql_table_factory(
     let pool = runtime().block_on(run_cancellable(&token, async move {
         MySQLConnectionPool::new(params)
             .await
-            .map_err(|e| DataFusionError::External(e))
+            .map_err(|e| DataFusionError::External(Box::new(e)))
     }))?;
     Ok(MySqlTableFactoryHandle {
         factory: MySQLTableFactory::new(Arc::new(pool)),

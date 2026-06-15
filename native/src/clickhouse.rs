@@ -135,7 +135,7 @@ fn create_clickhouse_table_factory(
     let pool = runtime().block_on(run_cancellable(&token, async move {
         ClickHouseConnectionPool::new(to_secret_map(params))
             .await
-            .map_err(|e| DataFusionError::External(e))
+            .map_err(|e| DataFusionError::External(Box::new(e)))
     }))?;
     Ok(ClickHouseTableFactoryHandle {
         factory: ClickHouseTableFactory::new(pool),
