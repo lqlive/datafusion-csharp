@@ -156,7 +156,7 @@ fn register_clickhouse_table(
             .factory
             .table_provider(TableReference::bare(table_name), None)
             .await
-            .map_err(|e| DataFusionError::External(e))
+            .map_err(DataFusionError::External)
     }))?;
 
     ctx.register_table(registration_name, provider)?;

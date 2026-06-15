@@ -151,7 +151,7 @@ fn register_mysql_table(
             .factory
             .table_provider(table_reference)
             .await
-            .map_err(|e| DataFusionError::External(e))
+            .map_err(DataFusionError::External)
     }))?;
 
     ctx.register_table(registration_name, provider)?;
