@@ -38,6 +38,13 @@ jobs:
         with:
           workspaces: native
 
+      # The default bash shell resolves the MSYS `perl`, which lacks modules the
+      # vendored OpenSSL build needs to configure. Point openssl-src at the
+      # full Strawberry Perl that ships on the Windows runner instead.
+      - name: Use Strawberry Perl for vendored OpenSSL (Windows)
+        if: runner.os == 'Windows'
+        run: echo "OPENSSL_SRC_PERL=C:\Strawberry\perl\bin\perl.exe" >> "$GITHUB_ENV"
+
       - name: Build native library (debug)
         working-directory: native
         run: cargo build
