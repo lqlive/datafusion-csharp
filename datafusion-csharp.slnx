@@ -1,9 +1,13 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Apache.DataFusion.TableProviders.ClickHouse/Apache.DataFusion.TableProviders.ClickHouse.csproj" />
+    <Project Path="src/Apache.DataFusion.TableProviders.MongoDB/Apache.DataFusion.TableProviders.MongoDB.csproj" />
     <Project Path="src/Apache.DataFusion.TableProviders.MySql/Apache.DataFusion.TableProviders.MySql.csproj" />
     <Project Path="src\Apache.DataFusion\Apache.DataFusion.csproj" />
   </Folder>
   <Folder Name="/examples/">
+    <Project Path="examples/Apache.DataFusion.Sample.ClickHouse/Apache.DataFusion.Sample.ClickHouse.csproj" />
+    <Project Path="examples/Apache.DataFusion.Sample.MongoDB/Apache.DataFusion.Sample.MongoDB.csproj" />
     <Project Path="examples/Apache.DataFusion.Sample.MySql/Apache.DataFusion.Sample.MySql.csproj" />
     <Project Path="examples\Apache.DataFusion.Sample.Aggregate\Apache.DataFusion.Sample.Aggregate.csproj" />
     <Project Path="examples\Apache.DataFusion.Sample.DataFrame\Apache.DataFusion.Sample.DataFrame.csproj" />
