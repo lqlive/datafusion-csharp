@@ -79,8 +79,7 @@ cd native
 cargo build
 ```
 
-The default native build includes Excel/ODS reading and the database table providers
-for PostgreSQL, MySQL, MongoDB, ClickHouse, and SQLite. Extra native integrations are
+The default native build includes Excel/ODS reading. Extra native integrations are
 opt-in via Cargo features (see [Optional native features](#optional-native-features)):
 
 ```powershell
@@ -155,8 +154,9 @@ dotnet run --project examples/Apache.DataFusion.Sample.Sql
 - **Writes**: Parquet, CSV, JSON.
 - **Plan exchange**: DataFusion logical plan Protobuf, Substrait (feature-gated).
 - **Table providers**: `SimpleTableProvider` backed by Arrow IPC and a native `MemTable`;
-  PostgreSQL, MySQL, MongoDB, ClickHouse, and SQLite backed by
-  [`datafusion-table-providers`](https://github.com/datafusion-contrib/datafusion-table-providers).
+  `StreamingTableProvider`, a lazy callback-based provider whose `Scan` is invoked by the
+  engine and streamed in over the Arrow C Data Interface (connect any managed source, e.g.
+  ADO.NET, with no native database driver).
 - **Scalar UDF**: zero-argument `Int64` managed callbacks.
 - **Typed exceptions**: `DataFusionException` (base), plus `DataFusionPlanException`,
   `DataFusionExecutionException`, `DataFusionIoException`,
@@ -165,90 +165,53 @@ dotnet run --project examples/Apache.DataFusion.Sample.Sql
 
 ## Optional native features
 
-The default native build includes the spreadsheet reader and database table providers.
-Some extra integrations are still gated behind Cargo features so the base native
-library does not pull in every backend-specific dependency. Calling one of these APIs
-without the matching feature compiled in returns a clear native error message.
+The default native build includes the spreadsheet reader. Some extra integrations are
+gated behind Cargo features so the base native library does not pull in every
+backend-specific dependency. Calling one of these APIs without the matching feature
+compiled in returns a clear native error message.
 
 | Capability | Cargo feature(s) |
 | --- | --- |
 | Object stores | `object-store-aws`, `object-store-gcp`, `object-store-http` |
-| Vendored OpenSSL for native TLS | `openssl-vendored` |
 | Substrait plan exchange | `substrait` |
 | Runtime metrics | `runtime-metrics` |
 
 Excel/ODS reading uses the lightweight `calamine` parser and is gated behind the `excel`
-feature, which is enabled by default. PostgreSQL, MySQL, MongoDB, ClickHouse, and SQLite
-table providers are also enabled by default. Drop default features with
-`--no-default-features` only when you intentionally want a smaller custom native build.
-The PostgreSQL, MySQL, MongoDB, and ClickHouse provider features enable vendored OpenSSL
-so Windows/MSVC builds do not require a system OpenSSL installation.
+feature, which is enabled by default. Drop default features with `--no-default-features`
+only when you intentionally want a smaller custom native build.
 
-### External table providers
+### Streaming table providers
+
+External data sources (databases, web services, custom readers) are connected from the
+managed side rather than via native drivers. Implement `StreamingTableProvider`, expose the
+Arrow schema, and return a fresh `IArrowArrayStream` on each scan. DataFusion invokes `Scan`
+lazily on every query and reads the batches over the Arrow C Data Interface, so no Arrow IPC
+round-trip and no native database/TLS dependency are involved.
 
 ```csharp
+using Apache.Arrow;
+using Apache.Arrow.Ipc;
+using Apache.DataFusion;
+
+sealed class AdoNetTableProvider(Schema schema, string connectionString, string sql) : StreamingTableProvider
+{
+    public override Schema Schema { get; } = schema;
+
+    // Called by the engine on every scan; open the reader lazily and adapt it
+    // to an IArrowArrayStream (e.g. with your own ADO.NET -> Arrow bridge).
+    public override IArrowArrayStream Scan() => OpenAdoNetArrowStream(connectionString, sql, Schema);
+}
+
 using SessionContext context = new();
+context.RegisterStreamingTable("companies", new AdoNetTableProvider(schema, connectionString, "SELECT * FROM companies"));
 
-context.RegisterPostgres(
-    "companies",
-    new PostgresTableOptions(
-        "host=localhost port=5432 dbname=postgres user=postgres password=password sslmode=disable",
-        "companies")
-    {
-        SchemaName = "public",
-    });
-
-context.RegisterMySql(
-    "companies_mysql",
-    new MySqlTableOptions("mysql://root:password@localhost:3306/mysql_db", "companies"));
-
-context.RegisterMongoDb(
-    "companies_mongo",
-    new MongoDbTableOptions(
-        "mongodb://root:password@localhost:27017/mongo_db?authSource=admin&tls=false",
-        "companies"));
-
-context.RegisterClickHouse(
-    "reports",
-    new ClickHouseTableOptions("http://localhost:8123", "Reports")
-    {
-        Database = "default",
-        User = "default",
-    });
-
-context.RegisterSqlite(
-    "companies_sqlite",
-    new SqliteTableOptions("example.db", "companies"));
+using DataFrame df = context.Sql("SELECT * FROM companies WHERE region = 'EU'");
+Console.WriteLine(df.Count());
 ```
 
-Each `RegisterXxx` call above builds a connection pool, registers one table and
-releases the pool. When registering several tables from the same database,
-reuse a factory so the pool is built once:
-
-```csharp
-using SessionContext context = new();
-
-// Build the PostgreSQL connection pool once...
-using PostgresTableFactory factory = new(
-    "host=localhost port=5432 dbname=postgres user=postgres password=password sslmode=disable");
-
-// ...then register many tables against the same pool.
-factory.Register(context, "companies", "companies", schemaName: "public");
-factory.Register(context, "orders", "orders", schemaName: "public");
-```
-
-Pool creation and table registration are cooperatively cancellable. Pass a
-`CancellationToken` to abort a slow connect or registration; a cancelled call
-throws `OperationCanceledException`:
-
-```csharp
-using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-using PostgresTableFactory factory = new(connectionString, cts.Token);
-factory.Register(context, "companies", "companies", cancellationToken: cts.Token);
-```
-
-`MySqlTableFactory`, `SqliteTableFactory`, `ClickHouseTableFactory` and
-`MongoDbTableFactory` expose the same pattern.
+`Schema` is read once at registration and must match every stream `Scan` returns. `Scan`
+may run on native worker threads and more than once over the table's lifetime; each call
+must return a new, independently consumable stream, which the engine disposes once read.
 
 ## Native packaging
 

@@ -15,6 +15,10 @@
 // specific language governing permissions and limitations
 // under the License.
 
+using System.Runtime.InteropServices;
+using Apache.Arrow;
+using Apache.Arrow.C;
+using Apache.Arrow.Ipc;
 using Apache.DataFusion.Interop;
 
 namespace Apache.DataFusion;
@@ -22,6 +26,13 @@ namespace Apache.DataFusion;
 public sealed partial class SessionContext
 {
     private readonly List<NativeMethods.ScalarI64Callback> scalarCallbacks = [];
+
+    // One function pointer per delegate is enough: the native side distinguishes
+    // providers through the per-registration context handle, not the callback.
+    // Holding the instances in static fields keeps them rooted for the lifetime
+    // of any table that may invoke them from native worker threads.
+    private static readonly NativeMethods.CallbackTableScan StreamingScanCallback = StreamingScanThunk;
+    private static readonly NativeMethods.CallbackTableRelease StreamingReleaseCallback = StreamingReleaseThunk;
 
     public void RegisterTable(string name, TableProvider tableProvider)
     {
@@ -32,69 +43,39 @@ public sealed partial class SessionContext
     }
 
     /// <summary>
-    /// Register a single PostgreSQL table. This builds a connection pool, uses
-    /// it once and releases it; when registering several tables from the same
-    /// database, reuse one <see cref="PostgresTableFactory"/> instead. Firing
-    /// <paramref name="cancellationToken"/> aborts a slow connect/registration.
+    /// Register a lazy, streaming table backed by managed code. DataFusion calls
+    /// <see cref="StreamingTableProvider.Scan(StreamingTableScanRequest)"/> on every scan and consumes the
+    /// returned <see cref="IArrowArrayStream"/> over the Arrow C Data Interface,
+    /// so data is produced on demand without a native database driver. The
+    /// provider is kept alive until this context is disposed.
     /// </summary>
-    public void RegisterPostgres(string name, PostgresTableOptions options, CancellationToken cancellationToken = default)
+    public void RegisterStreamingTable(string name, StreamingTableProvider provider)
     {
-        ArgumentNullException.ThrowIfNull(options);
-        using PostgresTableFactory factory = new(options.ConnectionString, cancellationToken);
-        factory.Register(this, name, options.TableName, options.SchemaName, cancellationToken);
-    }
+        ArgumentNullException.ThrowIfNull(provider);
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            throw new ArgumentException("Table name cannot be null or whitespace.", nameof(name));
+        }
 
-    /// <summary>
-    /// Register a single MySQL table. This builds a connection pool, uses it
-    /// once and releases it; when registering several tables from the same
-    /// database, reuse one <see cref="MySqlTableFactory"/> instead. Firing
-    /// <paramref name="cancellationToken"/> aborts a slow connect/registration.
-    /// </summary>
-    public void RegisterMySql(string name, MySqlTableOptions options, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        using MySqlTableFactory factory = new(options.ConnectionString, cancellationToken);
-        factory.Register(this, name, options.TableName, options.SchemaName, cancellationToken);
-    }
+        byte[] schemaIpc = SerializeSchema(provider.Schema);
+        GCHandle gcHandle = GCHandle.Alloc(provider);
+        IntPtr context = GCHandle.ToIntPtr(gcHandle);
+        using NativeUtf8String nativeName = new(name);
+        using NativeByteArray schema = new(schemaIpc);
 
-    /// <summary>
-    /// Register a single MongoDB collection. This builds a connection pool, uses
-    /// it once and releases it; when registering several collections from the
-    /// same database, reuse one <see cref="MongoDbTableFactory"/> instead.
-    /// Firing <paramref name="cancellationToken"/> aborts a slow
-    /// connect/registration.
-    /// </summary>
-    public void RegisterMongoDb(string name, MongoDbTableOptions options, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        using MongoDbTableFactory factory = new(options.ConnectionString, cancellationToken);
-        factory.Register(this, name, options.CollectionName, cancellationToken);
-    }
-
-    /// <summary>
-    /// Register a single ClickHouse table. This builds a connection pool, uses
-    /// it once and releases it; when registering several tables from the same
-    /// server, reuse one <see cref="ClickHouseTableFactory"/> instead. Firing
-    /// <paramref name="cancellationToken"/> aborts a slow connect/registration.
-    /// </summary>
-    public void RegisterClickHouse(string name, ClickHouseTableOptions options, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        using ClickHouseTableFactory factory = new(options.Url, options.Database, options.User, options.Password, cancellationToken);
-        factory.Register(this, name, options.TableName, cancellationToken);
-    }
-
-    /// <summary>
-    /// Register a single SQLite table. This opens a connection pool, uses it
-    /// once and releases it; when registering several tables from the same
-    /// database file, reuse one <see cref="SqliteTableFactory"/> instead. Firing
-    /// <paramref name="cancellationToken"/> aborts a slow open/registration.
-    /// </summary>
-    public void RegisterSqlite(string name, SqliteTableOptions options, CancellationToken cancellationToken = default)
-    {
-        ArgumentNullException.ThrowIfNull(options);
-        using SqliteTableFactory factory = new(options.Path, options.BusyTimeout, cancellationToken);
-        factory.Register(this, name, options.TableName, cancellationToken);
+        // The native adapter takes ownership of the context handle and always
+        // invokes the release callback exactly once - synchronously here on
+        // failure, or when the table is dropped on success - so the handle is
+        // freed in StreamingReleaseThunk and never here.
+        NativeMethods.ThrowIfError(NativeMethods.df_session_context_register_callback_table(
+            Handle,
+            nativeName.Pointer,
+            schema.Pointer,
+            schema.Length,
+            provider.SupportsPushdown ? 1 : 0,
+            StreamingScanCallback,
+            context,
+            StreamingReleaseCallback));
     }
 
     public void RegisterScalarUdf(ScalarUdf udf)
@@ -122,5 +103,86 @@ public sealed partial class SessionContext
         };
         scalarCallbacks.Add(callback);
         NativeMethods.ThrowIfError(NativeMethods.df_session_context_register_scalar_udf_i64(Handle, nativeName.Pointer, (byte)udf.Volatility, callback, IntPtr.Zero));
+    }
+
+    private static unsafe int StreamingScanThunk(IntPtr context, IntPtr request, IntPtr outStream)
+    {
+        try
+        {
+            if (GCHandle.FromIntPtr(context).Target is not StreamingTableProvider provider)
+            {
+                return 1;
+            }
+
+            IArrowArrayStream stream = provider.Scan(ParseStreamingScanRequest(request));
+            CArrowArrayStreamExporter.ExportArrayStream(stream, (CArrowArrayStream*)outStream);
+            return 0;
+        }
+        catch
+        {
+            return 1;
+        }
+    }
+
+    private static unsafe StreamingTableScanRequest ParseStreamingScanRequest(IntPtr request)
+    {
+        if (request == IntPtr.Zero)
+        {
+            return StreamingTableScanRequest.Empty;
+        }
+
+        NativeMethods.CallbackTableScanRequest nativeRequest =
+            Marshal.PtrToStructure<NativeMethods.CallbackTableScanRequest>(request);
+        string[] projection = new string[(int)nativeRequest.ProjectionLength];
+        NativeMethods.CallbackTableProjection* projections =
+            (NativeMethods.CallbackTableProjection*)nativeRequest.Projections;
+        for (int i = 0; i < projection.Length; i++)
+        {
+            projection[i] = Marshal.PtrToStringUTF8(projections[i].Name) ?? string.Empty;
+        }
+
+        StreamingTableFilter[] filters = new StreamingTableFilter[(int)nativeRequest.FilterLength];
+        NativeMethods.CallbackTableFilter* nativeFilters =
+            (NativeMethods.CallbackTableFilter*)nativeRequest.Filters;
+        for (int i = 0; i < filters.Length; i++)
+        {
+            filters[i] = new StreamingTableFilter(
+                Marshal.PtrToStringUTF8(nativeFilters[i].Column) ?? string.Empty,
+                (StreamingTableFilterOperator)nativeFilters[i].Operator,
+                (StreamingTableFilterValueKind)nativeFilters[i].ValueKind,
+                Marshal.PtrToStringUTF8(nativeFilters[i].Value) ?? string.Empty);
+        }
+
+        ulong? limit = nativeRequest.HasLimit == 0 ? null : (ulong)nativeRequest.Limit;
+        return new StreamingTableScanRequest(projection, filters, limit, nativeRequest.HasProjection != 0);
+    }
+
+    private static void StreamingReleaseThunk(IntPtr context)
+    {
+        try
+        {
+            GCHandle gcHandle = GCHandle.FromIntPtr(context);
+            if (gcHandle.IsAllocated)
+            {
+                gcHandle.Free();
+            }
+        }
+        catch
+        {
+            // Releasing the handle is best-effort; never let an exception cross
+            // back into native code.
+        }
+    }
+
+    private static byte[] SerializeSchema(Schema schema)
+    {
+        using MemoryStream stream = new();
+        using (ArrowStreamWriter writer = new(stream, schema, leaveOpen: true))
+        {
+            writer.WriteStart();
+            writer.WriteEnd();
+        }
+
+        return stream.ToArray();
     }
 }

@@ -14,9 +14,6 @@
 // KIND, either express or implied.  See the License for the
 // specific language governing permissions and limitations
 // under the License.
-
-using Apache.DataFusion;
-
 using MiniExcelLibs;
 
 namespace Apache.DataFusion.Tests;
@@ -42,7 +39,7 @@ public class ExcelReadTests
             Assert.Equal(3UL, all.Count());
 
             using DataFrame filtered =
-                context.Sql("SELECT \"Id\" FROM people WHERE \"Amount\" > 80 AND \"Name\" = 'Bob'");
+                context.Sql("""SELECT "Id" FROM people WHERE "Amount" > 80 AND "Name" = 'Bob'""");
             Assert.Equal(1UL, filtered.Count());
         }
         finally
