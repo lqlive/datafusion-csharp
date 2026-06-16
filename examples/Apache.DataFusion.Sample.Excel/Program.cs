@@ -27,7 +27,7 @@ context.RegisterExcel("people", xlsxPath, new ExcelReadOptions { HasHeader = tru
 
 Console.WriteLine("People earning more than 1000, highest first:");
 using DataFrame df = context.Sql(
-    "SELECT Id, Name, Amount FROM people WHERE Amount > 1000 ORDER BY Amount DESC");
+    """SELECT "Id", "Name", "Amount" FROM people WHERE "Amount" > 1000 ORDER BY "Amount" DESC""");
 df.Show();
 Console.WriteLine($"Match count: {df.Count()}");
 
