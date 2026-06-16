@@ -43,9 +43,9 @@ use datafusion::common::ScalarValue;
 use datafusion::error::DataFusionError;
 use datafusion::execution::{SendableRecordBatchStream, TaskContext};
 use datafusion::logical_expr::{Expr, Operator, TableProviderFilterPushDown, TableType};
+use datafusion::physical_expr::LexOrdering;
 use datafusion::physical_plan::stream::RecordBatchStreamAdapter;
 use datafusion::physical_plan::streaming::{PartitionStream, StreamingTableExec};
-use datafusion::physical_expr::LexOrdering;
 use datafusion::physical_plan::ExecutionPlan;
 use datafusion::prelude::SessionContext;
 use futures::stream;
@@ -199,7 +199,10 @@ impl TableProvider for ManagedCallbackTable {
         filters: &[&Expr],
     ) -> Result<Vec<TableProviderFilterPushDown>, DataFusionError> {
         if !self.supports_pushdown {
-            return Ok(vec![TableProviderFilterPushDown::Unsupported; filters.len()]);
+            return Ok(vec![
+                TableProviderFilterPushDown::Unsupported;
+                filters.len()
+            ]);
         }
 
         Ok(filters
@@ -221,7 +224,11 @@ impl TableProvider for ManagedCallbackTable {
         filters: &[Expr],
         limit: Option<usize>,
     ) -> Result<Arc<dyn ExecutionPlan>, DataFusionError> {
-        let pushed_projection = if self.supports_pushdown { projection } else { None };
+        let pushed_projection = if self.supports_pushdown {
+            projection
+        } else {
+            None
+        };
         let pushed_limit = if self.supports_pushdown { limit } else { None };
         let projected_schema = match pushed_projection {
             Some(projection) => Arc::new(self.schema.project(projection)?),
