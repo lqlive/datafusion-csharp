@@ -98,7 +98,8 @@ impl ManagedScan {
                 "managed table provider scan callback returned status {status}"
             )));
         }
-        ArrowArrayStreamReader::try_new(stream).map_err(|e| DataFusionError::ArrowError(e, None))
+        ArrowArrayStreamReader::try_new(stream)
+            .map_err(|e| DataFusionError::ArrowError(Box::new(e), None))
     }
 }
 
