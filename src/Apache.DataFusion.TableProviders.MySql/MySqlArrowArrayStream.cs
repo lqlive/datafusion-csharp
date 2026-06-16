@@ -15,11 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-using MySqlConnector;
 using System.Data;
 using System.Data.Common;
+
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
+using Apache.DataFusion.TableProviders.MySql.Sql;
+
+using MySqlConnector;
 
 namespace Apache.DataFusion.TableProviders.MySql;
 
@@ -29,7 +32,7 @@ internal sealed class MySqlArrowArrayStream : IArrowArrayStream
     private readonly ColumnPlan[] columns;
     private readonly int batchSize;
     private MySqlConnection? connection;
-    private DbCommand? command;
+    private MySqlCommand? command;
     private DbDataReader? reader;
     private bool finished;
 
@@ -38,7 +41,8 @@ internal sealed class MySqlArrowArrayStream : IArrowArrayStream
         string query,
         Schema schema,
         ColumnPlan[] columns,
-        int batchSize)
+        int batchSize,
+        IReadOnlyList<SqlQueryParameter>? parameters = null)
     {
         this.schema = schema;
         this.columns = columns;
@@ -51,6 +55,14 @@ internal sealed class MySqlArrowArrayStream : IArrowArrayStream
 
             command = connection.CreateCommand();
             command.CommandText = query;
+            if (parameters is not null)
+            {
+                foreach (SqlQueryParameter parameter in parameters)
+                {
+                    command.Parameters.AddWithValue(parameter.Name, parameter.Value);
+                }
+            }
+
             reader = command.ExecuteReader(CommandBehavior.SequentialAccess);
         }
         catch

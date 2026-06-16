@@ -23,15 +23,15 @@ namespace Apache.DataFusion;
 /// <summary>
 /// A lazy, streaming table provider implemented in managed code. Register an
 /// instance with <see cref="SessionContext.RegisterStreamingTable"/>; DataFusion
-/// then calls <see cref="Scan"/> on every scan and reads the returned stream
+/// then calls <see cref="Scan(StreamingTableScanRequest)"/> on every scan and reads the returned stream
 /// over the Arrow C Data Interface, so rows are pulled on demand straight from
 /// the managed source (for example an ADO.NET reader) without a native database
 /// driver.
 /// </summary>
 /// <remarks>
 /// <para><see cref="Schema"/> is read once at registration and must match the
-/// schema of every stream returned by <see cref="Scan"/>.</para>
-/// <para><see cref="Scan"/> may be invoked from arbitrary native worker threads
+/// schema of every stream returned by <see cref="Scan(StreamingTableScanRequest)"/>.</para>
+/// <para><see cref="Scan(StreamingTableScanRequest)"/> may be invoked from arbitrary native worker threads
 /// and more than once over the table's lifetime. Each call must return a new,
 /// independently consumable <see cref="IArrowArrayStream"/>; the returned stream
 /// is owned and disposed by the engine once it is fully read.</para>
@@ -42,9 +42,22 @@ public abstract class StreamingTableProvider
     public abstract Schema Schema { get; }
 
     /// <summary>
+    /// Indicates whether this provider applies <see cref="StreamingTableScanRequest"/>
+    /// projection, filter, and limit information itself.
+    /// </summary>
+    public virtual bool SupportsPushdown => false;
+
+    /// <summary>
     /// Produce a fresh stream of record batches for a single scan. Implementations
     /// should open their underlying source lazily here so each scan reads current
     /// data.
     /// </summary>
     public abstract IArrowArrayStream Scan();
+
+    /// <summary>
+    /// Produce a fresh stream while applying scan pushdown information supplied
+    /// by DataFusion. Providers that can translate projection, filter, or limit
+    /// into their source query should override this method.
+    /// </summary>
+    public virtual IArrowArrayStream Scan(StreamingTableScanRequest request) => Scan();
 }

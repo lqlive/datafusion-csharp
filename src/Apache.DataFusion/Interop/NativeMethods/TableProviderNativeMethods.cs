@@ -26,7 +26,34 @@ internal static partial class NativeMethods
     // Fills outStream with an FFI_ArrowArrayStream and returns 0 on success or a
     // non-zero status on failure.
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    internal delegate int CallbackTableScan(IntPtr context, IntPtr outStream);
+    internal delegate int CallbackTableScan(IntPtr context, IntPtr request, IntPtr outStream);
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly struct CallbackTableProjection
+    {
+        public readonly IntPtr Name;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly struct CallbackTableFilter
+    {
+        public readonly IntPtr Column;
+        public readonly int Operator;
+        public readonly int ValueKind;
+        public readonly IntPtr Value;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal readonly struct CallbackTableScanRequest
+    {
+        public readonly int HasProjection;
+        public readonly IntPtr Projections;
+        public readonly nuint ProjectionLength;
+        public readonly IntPtr Filters;
+        public readonly nuint FilterLength;
+        public readonly int HasLimit;
+        public readonly nuint Limit;
+    }
 
     // Frees the managed context handle. Invoked exactly once by the native side.
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -38,6 +65,7 @@ internal static partial class NativeMethods
         IntPtr name,
         IntPtr schemaPtr,
         nuint schemaLen,
+        int supportsPushdown,
         CallbackTableScan scan,
         IntPtr context,
         CallbackTableRelease release);

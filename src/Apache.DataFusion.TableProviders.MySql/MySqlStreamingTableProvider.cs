@@ -17,9 +17,12 @@
 
 using System.Data;
 using System.Data.Common;
-using MySqlConnector;
+
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
+using Apache.DataFusion.TableProviders.MySql.Sql;
+
+using MySqlConnector;
 
 namespace Apache.DataFusion.TableProviders.MySql;
 
@@ -29,6 +32,7 @@ public sealed class MySqlStreamingTableProvider : StreamingTableProvider
     private readonly string query;
     private readonly int batchSize;
     private readonly ColumnPlan[] columns;
+    private readonly SqlQueryBuilder queryBuilder = new(MySqlDialect.Instance);
 
     public MySqlStreamingTableProvider(MySqlTableOptions options)
     {
@@ -57,8 +61,26 @@ public sealed class MySqlStreamingTableProvider : StreamingTableProvider
 
     public override Schema Schema { get; }
 
+    public override bool SupportsPushdown => true;
+
     public override IArrowArrayStream Scan() =>
         new MySqlArrowArrayStream(connectionString, query, Schema, columns, batchSize);
+
+    public override IArrowArrayStream Scan(StreamingTableScanRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+
+        PushedQuery pushedQuery = queryBuilder.Build(query, request);
+        ColumnPlan[] projectedColumns = ProjectColumns(request);
+        Schema projectedSchema = BuildSchema(projectedColumns);
+        return new MySqlArrowArrayStream(
+            connectionString,
+            pushedQuery.Sql,
+            projectedSchema,
+            projectedColumns,
+            batchSize,
+            pushedQuery.Parameters);
+    }
 
     private static ColumnPlan[] FetchColumns(string connectionString, string query)
     {
@@ -86,6 +108,23 @@ public sealed class MySqlStreamingTableProvider : StreamingTableProvider
         }
 
         return builder.Build();
+    }
+
+    private ColumnPlan[] ProjectColumns(StreamingTableScanRequest request)
+    {
+        if (!request.HasProjection)
+        {
+            return columns;
+        }
+
+        Dictionary<string, ColumnPlan> byName = columns.ToDictionary(
+            static column => column.Name,
+            StringComparer.OrdinalIgnoreCase);
+        return request.Projection
+            .Select(name => byName.TryGetValue(name, out ColumnPlan? column)
+                ? column
+                : throw new InvalidOperationException($"MySQL table provider does not contain column '{name}'."))
+            .ToArray();
     }
 
 }

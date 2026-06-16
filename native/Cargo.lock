@@ -955,6 +955,7 @@ name = "datafusion-csharp-native"
 version = "0.1.0"
 dependencies = [
  "arrow",
+ "async-trait",
  "calamine",
  "datafusion",
  "datafusion-proto",

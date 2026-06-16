@@ -44,7 +44,7 @@ public sealed partial class SessionContext
 
     /// <summary>
     /// Register a lazy, streaming table backed by managed code. DataFusion calls
-    /// <see cref="StreamingTableProvider.Scan"/> on every scan and consumes the
+    /// <see cref="StreamingTableProvider.Scan(StreamingTableScanRequest)"/> on every scan and consumes the
     /// returned <see cref="IArrowArrayStream"/> over the Arrow C Data Interface,
     /// so data is produced on demand without a native database driver. The
     /// provider is kept alive until this context is disposed.
@@ -72,6 +72,7 @@ public sealed partial class SessionContext
             nativeName.Pointer,
             schema.Pointer,
             schema.Length,
+            provider.SupportsPushdown ? 1 : 0,
             StreamingScanCallback,
             context,
             StreamingReleaseCallback));
@@ -104,7 +105,7 @@ public sealed partial class SessionContext
         NativeMethods.ThrowIfError(NativeMethods.df_session_context_register_scalar_udf_i64(Handle, nativeName.Pointer, (byte)udf.Volatility, callback, IntPtr.Zero));
     }
 
-    private static unsafe int StreamingScanThunk(IntPtr context, IntPtr outStream)
+    private static unsafe int StreamingScanThunk(IntPtr context, IntPtr request, IntPtr outStream)
     {
         try
         {
@@ -113,7 +114,7 @@ public sealed partial class SessionContext
                 return 1;
             }
 
-            IArrowArrayStream stream = provider.Scan();
+            IArrowArrayStream stream = provider.Scan(ParseStreamingScanRequest(request));
             CArrowArrayStreamExporter.ExportArrayStream(stream, (CArrowArrayStream*)outStream);
             return 0;
         }
@@ -121,6 +122,39 @@ public sealed partial class SessionContext
         {
             return 1;
         }
+    }
+
+    private static unsafe StreamingTableScanRequest ParseStreamingScanRequest(IntPtr request)
+    {
+        if (request == IntPtr.Zero)
+        {
+            return StreamingTableScanRequest.Empty;
+        }
+
+        NativeMethods.CallbackTableScanRequest nativeRequest =
+            Marshal.PtrToStructure<NativeMethods.CallbackTableScanRequest>(request);
+        string[] projection = new string[(int)nativeRequest.ProjectionLength];
+        NativeMethods.CallbackTableProjection* projections =
+            (NativeMethods.CallbackTableProjection*)nativeRequest.Projections;
+        for (int i = 0; i < projection.Length; i++)
+        {
+            projection[i] = Marshal.PtrToStringUTF8(projections[i].Name) ?? string.Empty;
+        }
+
+        StreamingTableFilter[] filters = new StreamingTableFilter[(int)nativeRequest.FilterLength];
+        NativeMethods.CallbackTableFilter* nativeFilters =
+            (NativeMethods.CallbackTableFilter*)nativeRequest.Filters;
+        for (int i = 0; i < filters.Length; i++)
+        {
+            filters[i] = new StreamingTableFilter(
+                Marshal.PtrToStringUTF8(nativeFilters[i].Column) ?? string.Empty,
+                (StreamingTableFilterOperator)nativeFilters[i].Operator,
+                (StreamingTableFilterValueKind)nativeFilters[i].ValueKind,
+                Marshal.PtrToStringUTF8(nativeFilters[i].Value) ?? string.Empty);
+        }
+
+        ulong? limit = nativeRequest.HasLimit == 0 ? null : (ulong)nativeRequest.Limit;
+        return new StreamingTableScanRequest(projection, filters, limit, nativeRequest.HasProjection != 0);
     }
 
     private static void StreamingReleaseThunk(IntPtr context)
