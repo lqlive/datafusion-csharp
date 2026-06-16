@@ -22,6 +22,7 @@ and result sets cross as Apache Arrow IPC byte streams.
 | Path | Contents |
 | --- | --- |
 | `src/Apache.DataFusion/` | Managed SDK (public API + interop) |
+| `src/Apache.DataFusion.TableProviders.*/` | Managed database table providers |
 | `native/` | Rust `cdylib` exposing the C ABI |
 | `proto/` | Protobuf contracts shared by C# and Rust |
 | `tests/Apache.DataFusion.Tests/` | xUnit test suite |
@@ -30,8 +31,9 @@ and result sets cross as Apache Arrow IPC byte streams.
 
 ## Prerequisites
 
-- **.NET SDK 9.0.200+** &mdash; required to build the `.slnx` solution format
-  (pinned to `9.0.301` in `global.json`). The libraries still target `net8.0`.
+- **.NET SDK 10.0.300+** &mdash; required to build the `.slnx` solution format
+  (pinned to `10.0.300` in `global.json`). The core SDK targets `net8.0`;
+  database table-provider packages target `net10.0`.
 - **Rust toolchain** (stable) &mdash; to build the native `cdylib`.
 
 ## Install
@@ -132,6 +134,9 @@ Each scenario is an independent, runnable console project under `examples/`:
 | `Apache.DataFusion.Sample.Streaming` | Stream Arrow batches and read typed columns |
 | `Apache.DataFusion.Sample.SessionConfig` | Configure the session builder + observability |
 | `Apache.DataFusion.Sample.Excel` | Read an `.xlsx` spreadsheet and run a SQL query |
+| `Apache.DataFusion.Sample.MySql` | Query a MySQL table through a managed streaming provider |
+| `Apache.DataFusion.Sample.MongoDB` | Query a MongoDB collection through a managed streaming provider |
+| `Apache.DataFusion.Sample.ClickHouse` | Query a ClickHouse table through the official `ClickHouse.Driver` |
 
 Run any of them with:
 
@@ -156,7 +161,8 @@ dotnet run --project examples/Apache.DataFusion.Sample.Sql
 - **Table providers**: `SimpleTableProvider` backed by Arrow IPC and a native `MemTable`;
   `StreamingTableProvider`, a lazy callback-based provider whose `Scan` is invoked by the
   engine and streamed in over the Arrow C Data Interface (connect any managed source, e.g.
-  ADO.NET, with no native database driver).
+  ADO.NET, with no native database driver). Managed provider packages currently include
+  MySQL, MongoDB, and ClickHouse.
 - **Scalar UDF**: zero-argument `Int64` managed callbacks.
 - **Typed exceptions**: `DataFusionException` (base), plus `DataFusionPlanException`,
   `DataFusionExecutionException`, `DataFusionIoException`,
@@ -212,6 +218,50 @@ Console.WriteLine(df.Count());
 `Schema` is read once at registration and must match every stream `Scan` returns. `Scan`
 may run on native worker threads and more than once over the table's lifetime; each call
 must return a new, independently consumable stream, which the engine disposes once read.
+
+### Managed database providers
+
+Managed database provider packages are built on `StreamingTableProvider`. They keep database
+drivers on the C# side and push simple projection, filter, and limit requests down to the
+source query when possible.
+
+| Provider package | Extension method | Driver |
+| --- | --- | --- |
+| `Apache.DataFusion.TableProviders.MySql` | `RegisterMySql` | `MySqlConnector` |
+| `Apache.DataFusion.TableProviders.MongoDB` | `RegisterMongoDb` | `MongoDB.Driver` |
+| `Apache.DataFusion.TableProviders.ClickHouse` | `RegisterClickHouse` | official `ClickHouse.Driver` |
+
+```csharp
+using Apache.DataFusion;
+using Apache.DataFusion.TableProviders.ClickHouse;
+
+using SessionContext context = new();
+context.RegisterClickHouse("audit_log", new ClickHouseTableOptions
+{
+    ConnectionString = "Host=localhost;Port=8123;Username=default;Password=;Database=default",
+    Query = """SELECT * FROM audit_log""",
+});
+
+using DataFrame df = context.Sql("""
+    SELECT *
+    FROM audit_log
+    LIMIT 10
+    """);
+df.Show();
+```
+
+The registered DataFusion table name is the first argument to the extension method. The
+provider's `Query` points at the remote database table or subquery. For example, if you
+register `audit_log`, query `FROM audit_log` in DataFusion SQL; if you register `orders`,
+query `FROM orders`.
+
+The sample projects use environment variables for connection strings:
+
+| Sample | Environment variable |
+| --- | --- |
+| `Apache.DataFusion.Sample.MySql` | `DATAFUSION_MYSQL_CONNECTION` |
+| `Apache.DataFusion.Sample.MongoDB` | `DATAFUSION_MONGODB_CONNECTION` |
+| `Apache.DataFusion.Sample.ClickHouse` | `DATAFUSION_CLICKHOUSE_CONNECTION` |
 
 ## Native packaging
 

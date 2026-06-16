@@ -18,7 +18,7 @@
 using Apache.DataFusion;
 using Apache.DataFusion.TableProviders.ClickHouse;
 
-using ClickHouse.Client.ADO;
+using ClickHouse.Driver.ADO;
 
 string? connectionString = Environment.GetEnvironmentVariable("DATAFUSION_CLICKHOUSE_CONNECTION");
 if (string.IsNullOrWhiteSpace(connectionString))

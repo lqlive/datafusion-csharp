@@ -22,7 +22,7 @@ using Apache.Arrow;
 using Apache.Arrow.Ipc;
 using Apache.DataFusion.TableProviders.ClickHouse.Sql;
 
-using ClickHouse.Client.ADO;
+using ClickHouse.Driver.ADO;
 
 namespace Apache.DataFusion.TableProviders.ClickHouse;
 
