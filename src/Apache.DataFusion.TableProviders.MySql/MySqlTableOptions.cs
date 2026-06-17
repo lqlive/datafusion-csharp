@@ -21,7 +21,9 @@ public sealed class MySqlTableOptions
 {
     public required string ConnectionString { get; init; }
 
-    public required string Query { get; init; }
+    public string? DatabaseName { get; init; }
+
+    public required string TableName { get; init; }
 
     public int BatchSize { get; init; } = 1024;
 }

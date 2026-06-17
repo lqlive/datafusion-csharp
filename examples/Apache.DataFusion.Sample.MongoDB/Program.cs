@@ -68,11 +68,10 @@ collection.InsertMany(
 ]);
 
 using SessionContext context = new();
-context.RegisterMongoDb("orders", new MongoDbTableOptions
+context.RegisterMongoDb(new MongoDbDatabaseOptions
 {
     ConnectionString = connectionString,
     DatabaseName = databaseName,
-    CollectionName = collectionName,
 });
 
 Console.WriteLine("Customer spend from a MongoDB-backed streaming table:");

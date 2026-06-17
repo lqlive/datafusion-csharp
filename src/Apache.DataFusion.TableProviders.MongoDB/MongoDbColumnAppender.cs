@@ -16,9 +16,7 @@
 // under the License.
 
 using System.Globalization;
-
 using Apache.Arrow;
-
 using MongoDB.Bson;
 
 namespace Apache.DataFusion.TableProviders.MongoDB;

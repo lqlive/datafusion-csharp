@@ -16,7 +16,6 @@
 // under the License.
 
 using System.Data.Common;
-
 using Apache.Arrow;
 
 namespace Apache.DataFusion.TableProviders.ClickHouse;

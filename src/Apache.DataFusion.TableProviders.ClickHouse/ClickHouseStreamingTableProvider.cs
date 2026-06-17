@@ -17,11 +17,9 @@
 
 using System.Data;
 using System.Data.Common;
-
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
 using Apache.DataFusion.TableProviders.ClickHouse.Sql;
-
 using ClickHouse.Driver.ADO;
 
 namespace Apache.DataFusion.TableProviders.ClickHouse;
@@ -29,7 +27,7 @@ namespace Apache.DataFusion.TableProviders.ClickHouse;
 public sealed class ClickHouseStreamingTableProvider : StreamingTableProvider
 {
     private readonly string connectionString;
-    private readonly string query;
+    private readonly string sourceSql;
     private readonly int batchSize;
     private readonly ColumnPlan[] columns;
     private readonly ClickHouseQueryBuilder queryBuilder = new(ClickHouseDialect.Instance);
@@ -42,20 +40,15 @@ public sealed class ClickHouseStreamingTableProvider : StreamingTableProvider
             throw new ArgumentException("Connection string cannot be null or whitespace.", nameof(options));
         }
 
-        if (string.IsNullOrWhiteSpace(options.Query))
-        {
-            throw new ArgumentException("Query cannot be null or whitespace.", nameof(options));
-        }
-
         if (options.BatchSize <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(options), options.BatchSize, "Batch size must be greater than zero.");
         }
 
         connectionString = options.ConnectionString;
-        query = options.Query;
+        sourceSql = BuildSourceSql(options);
         batchSize = options.BatchSize;
-        columns = FetchColumns(connectionString, query);
+        columns = FetchColumns(connectionString, sourceSql);
         Schema = BuildSchema(columns);
     }
 
@@ -64,13 +57,13 @@ public sealed class ClickHouseStreamingTableProvider : StreamingTableProvider
     public override bool SupportsPushdown => true;
 
     public override IArrowArrayStream Scan() =>
-        new ClickHouseArrowArrayStream(connectionString, query, Schema, columns, batchSize);
+        new ClickHouseArrowArrayStream(connectionString, sourceSql, Schema, columns, batchSize);
 
     public override IArrowArrayStream Scan(StreamingTableScanRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        PushedQuery pushedQuery = queryBuilder.Build(query, request);
+        PushedQuery pushedQuery = queryBuilder.Build(sourceSql, request);
         ColumnPlan[] projectedColumns = ProjectColumns(request);
         Schema projectedSchema = BuildSchema(projectedColumns);
         return new ClickHouseArrowArrayStream(
@@ -80,6 +73,24 @@ public sealed class ClickHouseStreamingTableProvider : StreamingTableProvider
             projectedColumns,
             batchSize,
             pushedQuery.Parameters);
+    }
+
+    private static string BuildSourceSql(ClickHouseTableOptions options)
+    {
+        if (string.IsNullOrWhiteSpace(options.TableName))
+        {
+            throw new ArgumentException("Table name must be provided.", nameof(options));
+        }
+
+        return $"SELECT * FROM {QuoteQualifiedTableName(options.DatabaseName, options.TableName)}";
+    }
+
+    private static string QuoteQualifiedTableName(string? databaseName, string tableName)
+    {
+        string quotedTable = ClickHouseDialect.Instance.QuoteIdentifier(tableName);
+        return string.IsNullOrWhiteSpace(databaseName)
+            ? quotedTable
+            : $"{ClickHouseDialect.Instance.QuoteIdentifier(databaseName)}.{quotedTable}";
     }
 
     private static ColumnPlan[] FetchColumns(string connectionString, string query)
@@ -117,12 +128,12 @@ public sealed class ClickHouseStreamingTableProvider : StreamingTableProvider
             return columns;
         }
 
-        Dictionary<string, ColumnPlan> byName = columns.ToDictionary(
+        Dictionary<string, ColumnPlan> columnLookup = columns.ToDictionary(
             static column => column.Name,
             StringComparer.OrdinalIgnoreCase);
         return request.Projection
-            .Select(name => byName.TryGetValue(name, out ColumnPlan? column)
-                ? column
+            .Select((name, ordinal) => columnLookup.TryGetValue(name, out ColumnPlan? column)
+                ? column with { Ordinal = ordinal }
                 : throw new InvalidOperationException($"ClickHouse table provider does not contain column '{name}'."))
             .ToArray();
     }

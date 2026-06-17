@@ -16,7 +16,6 @@
 // under the License.
 
 using System.Globalization;
-
 using MongoDB.Bson;
 using MongoDB.Driver;
 

@@ -15,10 +15,46 @@
 // specific language governing permissions and limitations
 // under the License.
 
+using MySqlConnector;
+
 namespace Apache.DataFusion.TableProviders.MySql;
 
 public static class SessionContextExtensions
 {
+    public static void RegisterMySql(this SessionContext context, string connectionString)
+    {
+        context.RegisterMySql(new MySqlDatabaseOptions
+        {
+            ConnectionString = connectionString,
+        });
+    }
+
+    public static void RegisterMySql(this SessionContext context, MySqlDatabaseOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(context);
+        ArgumentNullException.ThrowIfNull(options);
+        if (string.IsNullOrWhiteSpace(options.ConnectionString))
+        {
+            throw new ArgumentException("Connection string cannot be null or whitespace.", nameof(options));
+        }
+
+        if (options.BatchSize <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), options.BatchSize, "Batch size must be greater than zero.");
+        }
+
+        foreach (MySqlTable table in FetchTables(options.ConnectionString, options.DatabaseName, options.IncludeViews))
+        {
+            context.RegisterStreamingTable(table.TableName, new MySqlStreamingTableProvider(new MySqlTableOptions
+            {
+                ConnectionString = options.ConnectionString,
+                DatabaseName = table.DatabaseName,
+                TableName = table.TableName,
+                BatchSize = options.BatchSize,
+            }));
+        }
+    }
+
     public static void RegisterMySql(this SessionContext context, string name, MySqlTableOptions options)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -27,12 +63,41 @@ public static class SessionContextExtensions
         context.RegisterStreamingTable(name, new MySqlStreamingTableProvider(options));
     }
 
-    public static void RegisterMySql(this SessionContext context, string name, string connectionString, string query)
+    public static void RegisterMySql(this SessionContext context, string name, string connectionString)
     {
         context.RegisterMySql(name, new MySqlTableOptions
         {
             ConnectionString = connectionString,
-            Query = query,
+            TableName = name,
         });
     }
+
+    private static IEnumerable<MySqlTable> FetchTables(
+        string connectionString,
+        string? databaseName,
+        bool includeViews)
+    {
+        using MySqlConnection connection = new(connectionString);
+        connection.Open();
+
+        using MySqlCommand command = connection.CreateCommand();
+        command.CommandText = """
+            SELECT table_schema, table_name
+            FROM information_schema.tables
+            WHERE table_schema = COALESCE(@database_name, DATABASE())
+              AND table_type IN ('BASE TABLE', 'VIEW')
+              AND (@include_views OR table_type = 'BASE TABLE')
+            ORDER BY table_name
+            """;
+        command.Parameters.AddWithValue("@database_name", string.IsNullOrWhiteSpace(databaseName) ? DBNull.Value : databaseName);
+        command.Parameters.AddWithValue("@include_views", includeViews);
+
+        using MySqlDataReader reader = command.ExecuteReader();
+        while (reader.Read())
+        {
+            yield return new MySqlTable(reader.GetString(0), reader.GetString(1));
+        }
+    }
+
+    private sealed record MySqlTable(string DatabaseName, string TableName);
 }

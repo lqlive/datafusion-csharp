@@ -52,16 +52,12 @@ using (ClickHouseConnection connection = new(connectionString))
 }
 
 using SessionContext context = new();
-context.RegisterClickHouse("orders", new ClickHouseTableOptions
-{
-    ConnectionString = connectionString,
-    Query = """SELECT id, customer, total FROM datafusion_orders""",
-});
+context.RegisterClickHouse(connectionString);
 
 Console.WriteLine("Customer spend from a ClickHouse-backed streaming table:");
 using DataFrame df = context.Sql("""
     SELECT customer, SUM(total) AS spend
-    FROM orders
+    FROM datafusion_orders
     WHERE total >= 10
     GROUP BY customer
     ORDER BY customer

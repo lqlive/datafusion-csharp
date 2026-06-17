@@ -17,7 +17,6 @@
 
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
-
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -94,14 +93,13 @@ public sealed class MongoDbStreamingTableProvider : StreamingTableProvider
             return columns;
         }
 
-        Dictionary<string, MongoDbColumnPlan> byName = columns.ToDictionary(
+        Dictionary<string, MongoDbColumnPlan> columnLookup = columns.ToDictionary(
             static column => column.Name,
             StringComparer.Ordinal);
-        return request.Projection
-            .Select(name => byName.TryGetValue(name, out MongoDbColumnPlan? column)
+        return [.. request.Projection
+            .Select(name => columnLookup.TryGetValue(name, out MongoDbColumnPlan? column)
                 ? column
-                : throw new InvalidOperationException($"MongoDB table provider does not contain field '{name}'."))
-            .ToArray();
+                : throw new InvalidOperationException($"MongoDB table provider does not contain field '{name}'."))];
     }
 
     private static MongoDbColumnPlan[] InferColumns(IMongoCollection<BsonDocument> collection, int schemaInferenceLimit)

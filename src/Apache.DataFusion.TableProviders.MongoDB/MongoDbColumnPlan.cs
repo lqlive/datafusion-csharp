@@ -16,7 +16,6 @@
 // under the License.
 
 using Apache.Arrow.Types;
-
 using MongoDB.Bson;
 
 namespace Apache.DataFusion.TableProviders.MongoDB;
@@ -53,13 +52,12 @@ internal sealed record MongoDbColumnPlan(
             }
         }
 
-        return columns
+        return [.. columns
             .Select(column => new MongoDbColumnPlan(
                 column.Key,
                 GetArrowType(column.Value.Kind),
                 column.Value.Nullable || column.Value.ObservedCount < documents.Count,
-                column.Value.Kind))
-            .ToArray();
+                column.Value.Kind))];
     }
 
     private static IArrowType GetArrowType(MongoDbColumnKind kind) => kind switch

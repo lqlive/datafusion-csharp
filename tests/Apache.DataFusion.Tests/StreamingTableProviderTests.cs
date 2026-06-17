@@ -19,8 +19,6 @@ using Apache.Arrow;
 using Apache.Arrow.Ipc;
 using Apache.Arrow.Types;
 
-using Apache.DataFusion;
-
 namespace Apache.DataFusion.Tests;
 
 public class StreamingTableProviderTests
