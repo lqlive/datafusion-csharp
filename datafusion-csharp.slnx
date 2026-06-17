@@ -9,6 +9,7 @@
   </Folder>
   <Folder Name="/examples/">
     <Project Path="examples/Apache.DataFusion.Sample.ClickHouse/Apache.DataFusion.Sample.ClickHouse.csproj" />
+    <Project Path="examples/Apache.DataFusion.Sample.FederatedQuery/Apache.DataFusion.Sample.FederatedQuery.csproj" />
     <Project Path="examples/Apache.DataFusion.Sample.MongoDB/Apache.DataFusion.Sample.MongoDB.csproj" />
     <Project Path="examples/Apache.DataFusion.Sample.MySql/Apache.DataFusion.Sample.MySql.csproj" />
     <Project Path="examples/Apache.DataFusion.Sample.PostgreSql/Apache.DataFusion.Sample.PostgreSql.csproj" />

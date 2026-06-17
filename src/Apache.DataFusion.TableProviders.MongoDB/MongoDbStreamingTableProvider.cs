@@ -93,11 +93,11 @@ public sealed class MongoDbStreamingTableProvider : StreamingTableProvider
             return columns;
         }
 
-        Dictionary<string, MongoDbColumnPlan> byName = columns.ToDictionary(
+        Dictionary<string, MongoDbColumnPlan> columnLookup = columns.ToDictionary(
             static column => column.Name,
             StringComparer.Ordinal);
         return [.. request.Projection
-            .Select(name => byName.TryGetValue(name, out MongoDbColumnPlan? column)
+            .Select(name => columnLookup.TryGetValue(name, out MongoDbColumnPlan? column)
                 ? column
                 : throw new InvalidOperationException($"MongoDB table provider does not contain field '{name}'."))];
     }

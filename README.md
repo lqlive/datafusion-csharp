@@ -134,6 +134,7 @@ Each scenario is an independent, runnable console project under `examples/`:
 | `Apache.DataFusion.Sample.Streaming` | Stream Arrow batches and read typed columns |
 | `Apache.DataFusion.Sample.SessionConfig` | Configure the session builder + observability |
 | `Apache.DataFusion.Sample.Excel` | Read an `.xlsx` spreadsheet and run a SQL query |
+| `Apache.DataFusion.Sample.FederatedQuery` | Run one SQL query across SQLite and CSV sources |
 | `Apache.DataFusion.Sample.MySql` | Query a MySQL table through a managed streaming provider |
 | `Apache.DataFusion.Sample.PostgreSql` | Query a PostgreSQL table through a managed streaming provider |
 | `Apache.DataFusion.Sample.Sqlite` | Query a SQLite table through a managed streaming provider |

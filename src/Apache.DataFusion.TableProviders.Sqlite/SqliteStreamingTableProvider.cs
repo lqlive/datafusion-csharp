@@ -120,12 +120,12 @@ public sealed class SqliteStreamingTableProvider : StreamingTableProvider
             return columns;
         }
 
-        Dictionary<string, ColumnPlan> byName = columns.ToDictionary(
+        Dictionary<string, ColumnPlan> columnLookup = columns.ToDictionary(
             static column => column.Name,
             StringComparer.OrdinalIgnoreCase);
         return request.Projection
-            .Select(name => byName.TryGetValue(name, out ColumnPlan? column)
-                ? column
+            .Select((name, ordinal) => columnLookup.TryGetValue(name, out ColumnPlan? column)
+                ? column with { Ordinal = ordinal }
                 : throw new InvalidOperationException($"SQLite table provider does not contain column '{name}'."))
             .ToArray();
     }
