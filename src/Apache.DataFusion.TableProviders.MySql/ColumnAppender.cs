@@ -15,10 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-using Apache.Arrow;
 using System.Data.Common;
 using System.Globalization;
-
+using Apache.Arrow;
 
 namespace Apache.DataFusion.TableProviders.MySql;
 

@@ -17,7 +17,6 @@
 
 using System.Data.Common;
 using System.Globalization;
-
 using Apache.Arrow;
 
 namespace Apache.DataFusion.TableProviders.ClickHouse;

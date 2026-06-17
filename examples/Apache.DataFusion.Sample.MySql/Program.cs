@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-using MySqlConnector;
 using Apache.DataFusion;
 using Apache.DataFusion.TableProviders.MySql;
+using MySqlConnector;
 
 string? connectionString = Environment.GetEnvironmentVariable("DATAFUSION_MYSQL_CONNECTION");
 if (string.IsNullOrWhiteSpace(connectionString))

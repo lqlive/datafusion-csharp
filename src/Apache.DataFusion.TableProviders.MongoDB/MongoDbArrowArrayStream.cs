@@ -17,7 +17,6 @@
 
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
-
 using MongoDB.Bson;
 using MongoDB.Driver;
 
@@ -73,7 +72,7 @@ internal sealed class MongoDbArrowArrayStream : IArrowArrayStream
             return new ValueTask<RecordBatch?>((RecordBatch?)null);
         }
 
-        MongoDbColumnAppender[] appenders = columns.Select(static column => column.CreateAppender()).ToArray();
+        MongoDbColumnAppender[] appenders = [.. columns.Select(static column => column.CreateAppender())];
         int rowCount = 0;
         while (rowCount < batchSize)
         {
@@ -97,7 +96,7 @@ internal sealed class MongoDbArrowArrayStream : IArrowArrayStream
             return new ValueTask<RecordBatch?>((RecordBatch?)null);
         }
 
-        IArrowArray[] arrays = appenders.Select(static appender => appender.Build()).ToArray();
+        IArrowArray[] arrays = [.. appenders.Select(static appender => appender.Build())];
         RecordBatch batch = new(schema, arrays, rowCount);
         return new ValueTask<RecordBatch?>(batch);
     }
@@ -123,7 +122,7 @@ internal sealed class MongoDbArrowArrayStream : IArrowArrayStream
             currentBatch = null;
             if (!cursor.MoveNext())
             {
-                document = new BsonDocument();
+                document = [];
                 return false;
             }
 

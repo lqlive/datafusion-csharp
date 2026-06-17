@@ -17,7 +17,6 @@
 
 using System.Data;
 using System.Data.Common;
-
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
 using Apache.DataFusion.TableProviders.ClickHouse.Sql;
