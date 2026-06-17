@@ -4,6 +4,7 @@
     <Project Path="src/Apache.DataFusion.TableProviders.MongoDB/Apache.DataFusion.TableProviders.MongoDB.csproj" />
     <Project Path="src/Apache.DataFusion.TableProviders.MySql/Apache.DataFusion.TableProviders.MySql.csproj" />
     <Project Path="src/Apache.DataFusion.TableProviders.PostgreSql/Apache.DataFusion.TableProviders.PostgreSql.csproj" />
+    <Project Path="src/Apache.DataFusion.TableProviders.Sqlite/Apache.DataFusion.TableProviders.Sqlite.csproj" />
     <Project Path="src\Apache.DataFusion\Apache.DataFusion.csproj" />
   </Folder>
   <Folder Name="/examples/">
@@ -11,6 +12,7 @@
     <Project Path="examples/Apache.DataFusion.Sample.MongoDB/Apache.DataFusion.Sample.MongoDB.csproj" />
     <Project Path="examples/Apache.DataFusion.Sample.MySql/Apache.DataFusion.Sample.MySql.csproj" />
     <Project Path="examples/Apache.DataFusion.Sample.PostgreSql/Apache.DataFusion.Sample.PostgreSql.csproj" />
+    <Project Path="examples/Apache.DataFusion.Sample.Sqlite/Apache.DataFusion.Sample.Sqlite.csproj" />
     <Project Path="examples\Apache.DataFusion.Sample.Aggregate\Apache.DataFusion.Sample.Aggregate.csproj" />
     <Project Path="examples\Apache.DataFusion.Sample.DataFrame\Apache.DataFusion.Sample.DataFrame.csproj" />
     <Project Path="examples\Apache.DataFusion.Sample.Excel\Apache.DataFusion.Sample.Excel.csproj" />

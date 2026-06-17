@@ -136,6 +136,7 @@ Each scenario is an independent, runnable console project under `examples/`:
 | `Apache.DataFusion.Sample.Excel` | Read an `.xlsx` spreadsheet and run a SQL query |
 | `Apache.DataFusion.Sample.MySql` | Query a MySQL table through a managed streaming provider |
 | `Apache.DataFusion.Sample.PostgreSql` | Query a PostgreSQL table through a managed streaming provider |
+| `Apache.DataFusion.Sample.Sqlite` | Query a SQLite table through a managed streaming provider |
 | `Apache.DataFusion.Sample.MongoDB` | Query a MongoDB collection through a managed streaming provider |
 | `Apache.DataFusion.Sample.ClickHouse` | Query a ClickHouse table through the official `ClickHouse.Driver` |
 
@@ -163,7 +164,7 @@ dotnet run --project examples/Apache.DataFusion.Sample.Sql
   `StreamingTableProvider`, a lazy callback-based provider whose `Scan` is invoked by the
   engine and streamed in over the Arrow C Data Interface (connect any managed source, e.g.
   ADO.NET, with no native database driver). Managed provider packages currently include
-  MySQL, PostgreSQL, MongoDB, and ClickHouse.
+  MySQL, PostgreSQL, SQLite, MongoDB, and ClickHouse.
 - **Scalar UDF**: zero-argument `Int64` managed callbacks.
 - **Typed exceptions**: `DataFusionException` (base), plus `DataFusionPlanException`,
   `DataFusionExecutionException`, `DataFusionIoException`,
@@ -230,6 +231,7 @@ drivers on the C# side, register discovered tables and collections in the curren
 | --- | --- | --- |
 | `Apache.DataFusion.TableProviders.MySql` | `RegisterMySql` | `MySqlConnector` |
 | `Apache.DataFusion.TableProviders.PostgreSql` | `RegisterPostgreSql` | `Npgsql` |
+| `Apache.DataFusion.TableProviders.Sqlite` | `RegisterSqlite` | `Microsoft.Data.Sqlite` |
 | `Apache.DataFusion.TableProviders.MongoDB` | `RegisterMongoDb` | `MongoDB.Driver` |
 | `Apache.DataFusion.TableProviders.ClickHouse` | `RegisterClickHouse` | official `ClickHouse.Driver` |
 
@@ -265,6 +267,23 @@ using DataFrame df = context.Sql("""
 df.Show();
 ```
 
+SQLite uses the same registration shape for a local database file:
+
+```csharp
+using Apache.DataFusion;
+using Apache.DataFusion.TableProviders.Sqlite;
+
+using SessionContext context = new();
+context.RegisterSqlite("Data Source=datafusion_sample.sqlite");
+
+using DataFrame df = context.Sql("""
+    SELECT *
+    FROM datafusion_orders
+    LIMIT 10
+    """);
+df.Show();
+```
+
 Database registration uses each discovered table or collection name as the DataFusion table
 name by default. Single-table registration overloads are also available when you only want
 to expose one table.
@@ -275,6 +294,7 @@ The sample projects use environment variables for connection strings:
 | --- | --- |
 | `Apache.DataFusion.Sample.MySql` | `DATAFUSION_MYSQL_CONNECTION` |
 | `Apache.DataFusion.Sample.PostgreSql` | `DATAFUSION_POSTGRESQL_CONNECTION` |
+| `Apache.DataFusion.Sample.Sqlite` | `DATAFUSION_SQLITE_CONNECTION` |
 | `Apache.DataFusion.Sample.MongoDB` | `DATAFUSION_MONGODB_CONNECTION` |
 | `Apache.DataFusion.Sample.ClickHouse` | `DATAFUSION_CLICKHOUSE_CONNECTION` |
 
