@@ -53,7 +53,7 @@ public static class SessionContextExtensions
         IMongoDatabase database = client.GetDatabase(databaseName);
         foreach (string collectionName in database.ListCollectionNames().ToEnumerable())
         {
-            context.RegisterStreamingTable(collectionName, new MongoDbStreamingTableProvider(new MongoDbTableOptions
+            RegisterSourceTable(context, options.SourceName, collectionName, new MongoDbStreamingTableProvider(new MongoDbTableOptions
             {
                 ConnectionString = options.ConnectionString,
                 DatabaseName = databaseName,
@@ -112,5 +112,16 @@ public static class SessionContextExtensions
         }
 
         throw new ArgumentException("Database name must be provided in MongoDB options or connection string.", nameof(connectionString));
+    }
+
+    private static void RegisterSourceTable(SessionContext context, string? sourceName, string tableName, StreamingTableProvider provider)
+    {
+        if (string.IsNullOrWhiteSpace(sourceName))
+        {
+            context.RegisterStreamingTable(tableName, provider);
+            return;
+        }
+
+        context.RegisterStreamingTable(sourceName, tableName, provider);
     }
 }

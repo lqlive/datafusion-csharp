@@ -21,6 +21,8 @@ public sealed class PostgreSqlDatabaseOptions
 {
     public required string ConnectionString { get; init; }
 
+    public string? SourceName { get; init; }
+
     public IReadOnlyCollection<string> Schemas { get; init; } = ["public"];
 
     public bool IncludeViews { get; init; } = true;

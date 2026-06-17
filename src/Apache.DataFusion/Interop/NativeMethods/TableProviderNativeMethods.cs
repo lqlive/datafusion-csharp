@@ -69,4 +69,16 @@ internal static partial class NativeMethods
         CallbackTableScan scan,
         IntPtr context,
         CallbackTableRelease release);
+
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+    internal static extern int df_session_context_register_callback_table_in_schema(
+        IntPtr handle,
+        IntPtr schemaName,
+        IntPtr tableName,
+        IntPtr schemaPtr,
+        nuint schemaLen,
+        int supportsPushdown,
+        CallbackTableScan scan,
+        IntPtr context,
+        CallbackTableRelease release);
 }

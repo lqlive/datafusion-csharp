@@ -45,6 +45,19 @@ public class StreamingTableProviderTests
     }
 
     [Fact]
+    public void RegisterStreamingTable_InSchemaQueriesRows()
+    {
+        InMemoryStreamingProvider provider =
+            new(BuildSchema(), [1, 2], ["Alice", "Bob"]);
+
+        using SessionContext context = new();
+        context.RegisterStreamingTable("sqlite1", "people", provider);
+
+        using DataFrame result = context.Sql("SELECT name FROM sqlite1.people WHERE id = 2");
+        Assert.Equal(1UL, result.Count());
+    }
+
+    [Fact]
     public void RegisterStreamingTable_ScansLazilyOnEachQuery()
     {
         InMemoryStreamingProvider provider =
