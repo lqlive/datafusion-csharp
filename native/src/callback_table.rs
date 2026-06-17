@@ -38,8 +38,8 @@ use std::sync::Arc;
 use ::arrow::array::RecordBatch;
 use ::arrow::datatypes::SchemaRef;
 use ::arrow::ffi_stream::{ArrowArrayStreamReader, FFI_ArrowArrayStream};
-use datafusion::catalog::{Session, TableProvider};
-use datafusion::common::ScalarValue;
+use datafusion::catalog::{MemorySchemaProvider, Session, TableProvider};
+use datafusion::common::{ScalarValue, TableReference};
 use datafusion::error::DataFusionError;
 use datafusion::execution::{SendableRecordBatchStream, TaskContext};
 use datafusion::logical_expr::{Expr, Operator, TableProviderFilterPushDown, TableType};
@@ -404,17 +404,85 @@ pub extern "C" fn df_session_context_register_callback_table(
     take_result(move || {
         let ctx = unsafe { &*require_ptr(handle, "SessionContext handle")? };
         let name = cstr(name, "name")?;
-        let schema: SchemaRef = Arc::new(
-            decode_optional_schema(schema_ptr, schema_len)?
-                .ok_or("callback table requires a non-empty schema")?,
-        );
-        let table = ManagedCallbackTable {
-            schema,
+        register_callback_table(
+            ctx,
+            name,
+            schema_ptr,
+            schema_len,
+            supports_pushdown,
             callback,
-            context: Arc::new(guard),
-            supports_pushdown: supports_pushdown != 0,
-        };
-        ctx.register_table(name, Arc::new(table))?;
-        Ok(())
+            guard,
+        )
     })
+}
+
+#[no_mangle]
+pub extern "C" fn df_session_context_register_callback_table_in_schema(
+    handle: *mut SessionContext,
+    schema_name: *const c_char,
+    table_name: *const c_char,
+    schema_ptr: *const u8,
+    schema_len: usize,
+    supports_pushdown: c_int,
+    callback: ScanCallback,
+    context: *mut c_void,
+    release: ReleaseCallback,
+) -> c_int {
+    // Built before any fallible work so its Drop releases the managed handle on
+    // every early-return path; on success it moves into the adapter and fires
+    // when the table is dropped.
+    let guard = ContextGuard {
+        context,
+        release: Some(release),
+    };
+    take_result(move || {
+        let ctx = unsafe { &*require_ptr(handle, "SessionContext handle")? };
+        let schema_name = cstr(schema_name, "schema_name")?;
+        let table_name = cstr(table_name, "table_name")?;
+        register_default_schema(ctx, &schema_name)?;
+        register_callback_table(
+            ctx,
+            TableReference::partial(schema_name, table_name),
+            schema_ptr,
+            schema_len,
+            supports_pushdown,
+            callback,
+            guard,
+        )
+    })
+}
+
+fn register_callback_table(
+    ctx: &SessionContext,
+    table_ref: impl Into<TableReference>,
+    schema_ptr: *const u8,
+    schema_len: usize,
+    supports_pushdown: c_int,
+    callback: ScanCallback,
+    guard: ContextGuard,
+) -> crate::NativeResult<()> {
+    let schema: SchemaRef = Arc::new(
+        decode_optional_schema(schema_ptr, schema_len)?
+            .ok_or("callback table requires a non-empty schema")?,
+    );
+    let table = ManagedCallbackTable {
+        schema,
+        callback,
+        context: Arc::new(guard),
+        supports_pushdown: supports_pushdown != 0,
+    };
+    ctx.register_table(table_ref, Arc::new(table))?;
+    Ok(())
+}
+
+fn register_default_schema(ctx: &SessionContext, schema_name: &str) -> crate::NativeResult<()> {
+    let state = ctx.state();
+    let default_catalog = state.config().options().catalog.default_catalog.as_str();
+    let catalog = ctx
+        .catalog(default_catalog)
+        .ok_or_else(|| format!("failed to resolve catalog: {default_catalog}"))?;
+    if catalog.schema(schema_name).is_none() {
+        catalog.register_schema(schema_name, Arc::new(MemorySchemaProvider::new()))?;
+    }
+    Ok(())
 }

@@ -21,6 +21,8 @@ public sealed class ClickHouseDatabaseOptions
 {
     public required string ConnectionString { get; init; }
 
+    public string? SourceName { get; init; }
+
     public string? DatabaseName { get; init; }
 
     public bool IncludeViews { get; init; } = true;

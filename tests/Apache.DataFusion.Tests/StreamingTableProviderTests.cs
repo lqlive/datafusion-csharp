@@ -45,6 +45,52 @@ public class StreamingTableProviderTests
     }
 
     [Fact]
+    public void RegisterStreamingTable_InSchemaQueriesRows()
+    {
+        InMemoryStreamingProvider provider =
+            new(BuildSchema(), [1, 2], ["Alice", "Bob"]);
+
+        using SessionContext context = new();
+        context.RegisterStreamingTable("sqlite1", "people", provider);
+
+        using DataFrame result = context.Sql("SELECT name FROM sqlite1.people WHERE id = 2");
+        Assert.Equal(1UL, result.Count());
+    }
+
+    [Fact]
+    public void RegisterStreamingTable_InDifferentSchemasAllowsSameTableName()
+    {
+        InMemoryStreamingProvider primary =
+            new(BuildSchema(), [1, 2], ["Alice", "Bob"]);
+        InMemoryStreamingProvider secondary =
+            new(BuildSchema(), [2, 3], ["Bob", "Carol"]);
+
+        using SessionContext context = new();
+        context.RegisterStreamingTable("primary_source", "people", primary);
+        context.RegisterStreamingTable("secondary_source", "people", secondary);
+
+        using DataFrame result = context.Sql("""
+            SELECT p.name
+            FROM primary_source.people AS p
+            INNER JOIN secondary_source.people AS s
+                ON p.id = s.id
+            """);
+        Assert.Equal(1UL, result.Count());
+    }
+
+    [Fact]
+    public void RegisterStreamingTable_InSchemaValidatesNames()
+    {
+        InMemoryStreamingProvider provider =
+            new(BuildSchema(), [1], ["Alice"]);
+
+        using SessionContext context = new();
+
+        Assert.Throws<ArgumentException>(() => context.RegisterStreamingTable("", "people", provider));
+        Assert.Throws<ArgumentException>(() => context.RegisterStreamingTable("source", "", provider));
+    }
+
+    [Fact]
     public void RegisterStreamingTable_ScansLazilyOnEachQuery()
     {
         InMemoryStreamingProvider provider =

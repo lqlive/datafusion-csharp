@@ -148,6 +148,9 @@ jobs:
             dotnet pack "$proj" -c Release -o nupkg $vprop
           done
           dotnet pack src/Apache.DataFusion/Apache.DataFusion.csproj -c Release -o nupkg $vprop
+          for proj in src/Apache.DataFusion.TableProviders.*/Apache.DataFusion.TableProviders.*.csproj; do
+            dotnet pack "$proj" -c Release -o nupkg $vprop
+          done
           ls -l nupkg
 
       - name: Upload packages artifact

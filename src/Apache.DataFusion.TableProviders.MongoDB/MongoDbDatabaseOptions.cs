@@ -21,6 +21,8 @@ public sealed class MongoDbDatabaseOptions
 {
     public required string ConnectionString { get; init; }
 
+    public string? SourceName { get; init; }
+
     public string? DatabaseName { get; init; }
 
     public int BatchSize { get; init; } = 1024;

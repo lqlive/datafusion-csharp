@@ -45,7 +45,7 @@ public static class SessionContextExtensions
 
         foreach (MySqlTable table in FetchTables(options.ConnectionString, options.DatabaseName, options.IncludeViews))
         {
-            context.RegisterStreamingTable(table.TableName, new MySqlStreamingTableProvider(new MySqlTableOptions
+            RegisterSourceTable(context, options.SourceName, table.TableName, new MySqlStreamingTableProvider(new MySqlTableOptions
             {
                 ConnectionString = options.ConnectionString,
                 DatabaseName = table.DatabaseName,
@@ -100,4 +100,15 @@ public static class SessionContextExtensions
     }
 
     private sealed record MySqlTable(string DatabaseName, string TableName);
+
+    private static void RegisterSourceTable(SessionContext context, string? sourceName, string tableName, StreamingTableProvider provider)
+    {
+        if (string.IsNullOrWhiteSpace(sourceName))
+        {
+            context.RegisterStreamingTable(tableName, provider);
+            return;
+        }
+
+        context.RegisterStreamingTable(sourceName, tableName, provider);
+    }
 }

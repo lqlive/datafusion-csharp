@@ -22,7 +22,7 @@ namespace Apache.DataFusion;
 
 /// <summary>
 /// A lazy, streaming table provider implemented in managed code. Register an
-/// instance with <see cref="SessionContext.RegisterStreamingTable"/>; DataFusion
+/// instance with <see cref="M:Apache.DataFusion.SessionContext.RegisterStreamingTable(System.String,Apache.DataFusion.StreamingTableProvider)"/>; DataFusion
 /// then calls <see cref="Scan(StreamingTableScanRequest)"/> on every scan and reads the returned stream
 /// over the Arrow C Data Interface, so rows are pulled on demand straight from
 /// the managed source (for example an ADO.NET reader) without a native database

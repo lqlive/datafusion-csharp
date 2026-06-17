@@ -78,6 +78,46 @@ public sealed partial class SessionContext
             StreamingReleaseCallback));
     }
 
+    /// <summary>
+    /// Register a lazy, streaming table in a named DataFusion schema. The table
+    /// can be referenced from SQL as <c>schemaName.tableName</c>.
+    /// </summary>
+    public void RegisterStreamingTable(string schemaName, string tableName, StreamingTableProvider provider)
+    {
+        ArgumentNullException.ThrowIfNull(provider);
+        if (string.IsNullOrWhiteSpace(schemaName))
+        {
+            throw new ArgumentException("Schema name cannot be null or whitespace.", nameof(schemaName));
+        }
+
+        if (string.IsNullOrWhiteSpace(tableName))
+        {
+            throw new ArgumentException("Table name cannot be null or whitespace.", nameof(tableName));
+        }
+
+        byte[] schemaIpc = SerializeSchema(provider.Schema);
+        GCHandle gcHandle = GCHandle.Alloc(provider);
+        IntPtr context = GCHandle.ToIntPtr(gcHandle);
+        using NativeUtf8String nativeSchemaName = new(schemaName);
+        using NativeUtf8String nativeTableName = new(tableName);
+        using NativeByteArray schema = new(schemaIpc);
+
+        // The native adapter takes ownership of the context handle and always
+        // invokes the release callback exactly once - synchronously here on
+        // failure, or when the table is dropped on success - so the handle is
+        // freed in StreamingReleaseThunk and never here.
+        NativeMethods.ThrowIfError(NativeMethods.df_session_context_register_callback_table_in_schema(
+            Handle,
+            nativeSchemaName.Pointer,
+            nativeTableName.Pointer,
+            schema.Pointer,
+            schema.Length,
+            provider.SupportsPushdown ? 1 : 0,
+            StreamingScanCallback,
+            context,
+            StreamingReleaseCallback));
+    }
+
     public void RegisterScalarUdf(ScalarUdf udf)
     {
         ArgumentNullException.ThrowIfNull(udf);

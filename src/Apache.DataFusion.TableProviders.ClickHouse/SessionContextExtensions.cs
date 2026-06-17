@@ -46,7 +46,7 @@ public static class SessionContextExtensions
 
         foreach (ClickHouseTable table in FetchTables(options.ConnectionString, options.DatabaseName, options.IncludeViews))
         {
-            context.RegisterStreamingTable(table.TableName, new ClickHouseStreamingTableProvider(new ClickHouseTableOptions
+            RegisterSourceTable(context, options.SourceName, table.TableName, new ClickHouseStreamingTableProvider(new ClickHouseTableOptions
             {
                 ConnectionString = options.ConnectionString,
                 DatabaseName = table.DatabaseName,
@@ -108,4 +108,15 @@ public static class SessionContextExtensions
     }
 
     private sealed record ClickHouseTable(string DatabaseName, string TableName);
+
+    private static void RegisterSourceTable(SessionContext context, string? sourceName, string tableName, StreamingTableProvider provider)
+    {
+        if (string.IsNullOrWhiteSpace(sourceName))
+        {
+            context.RegisterStreamingTable(tableName, provider);
+            return;
+        }
+
+        context.RegisterStreamingTable(sourceName, tableName, provider);
+    }
 }

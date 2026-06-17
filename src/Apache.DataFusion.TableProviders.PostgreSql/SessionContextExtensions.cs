@@ -57,7 +57,7 @@ public static class SessionContextExtensions
         foreach (PostgreSqlTable table in FetchTables(options.ConnectionString, schemas, options.IncludeViews))
         {
             string registrationName = RegistrationName(table, schemas);
-            context.RegisterStreamingTable(registrationName, new PostgreSqlStreamingTableProvider(new PostgreSqlTableOptions
+            RegisterSourceTable(context, options.SourceName, registrationName, new PostgreSqlStreamingTableProvider(new PostgreSqlTableOptions
             {
                 ConnectionString = options.ConnectionString,
                 SchemaName = table.SchemaName,
@@ -126,4 +126,15 @@ public static class SessionContextExtensions
             : $"{table.SchemaName}_{table.TableName}";
 
     private sealed record PostgreSqlTable(string SchemaName, string TableName);
+
+    private static void RegisterSourceTable(SessionContext context, string? sourceName, string tableName, StreamingTableProvider provider)
+    {
+        if (string.IsNullOrWhiteSpace(sourceName))
+        {
+            context.RegisterStreamingTable(tableName, provider);
+            return;
+        }
+
+        context.RegisterStreamingTable(sourceName, tableName, provider);
+    }
 }

@@ -46,7 +46,7 @@ public static class SessionContextExtensions
 
         foreach (string tableName in FetchTables(options.ConnectionString, options.IncludeViews))
         {
-            context.RegisterStreamingTable(tableName, new SqliteStreamingTableProvider(new SqliteTableOptions
+            RegisterSourceTable(context, options.SourceName, tableName, new SqliteStreamingTableProvider(new SqliteTableOptions
             {
                 ConnectionString = options.ConnectionString,
                 TableName = tableName,
@@ -97,5 +97,16 @@ public static class SessionContextExtensions
         {
             yield return reader.GetString(0);
         }
+    }
+
+    private static void RegisterSourceTable(SessionContext context, string? sourceName, string tableName, StreamingTableProvider provider)
+    {
+        if (string.IsNullOrWhiteSpace(sourceName))
+        {
+            context.RegisterStreamingTable(tableName, provider);
+            return;
+        }
+
+        context.RegisterStreamingTable(sourceName, tableName, provider);
     }
 }

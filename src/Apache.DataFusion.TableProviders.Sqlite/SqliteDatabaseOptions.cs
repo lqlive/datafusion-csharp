@@ -21,6 +21,8 @@ public sealed class SqliteDatabaseOptions
 {
     public required string ConnectionString { get; init; }
 
+    public string? SourceName { get; init; }
+
     public bool IncludeViews { get; init; } = true;
 
     public int BatchSize { get; init; } = 1024;
