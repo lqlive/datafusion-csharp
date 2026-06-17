@@ -23,17 +23,23 @@ string sqliteConnectionString = CreateSqliteOrders();
 string customerRegionsPath = WriteCustomerRegionsCsv();
 
 using SessionContext context = new();
-context.RegisterSqlite(sqliteConnectionString);
+context.RegisterSqlite(new SqliteDatabaseOptions
+{
+    ConnectionString = sqliteConnectionString,
+    SourceName = "orders",
+});
 context.RegisterCsv("customer_regions", customerRegionsPath, new CsvReadOptions { HasHeader = true });
 
-Console.WriteLine("Federated query joining SQLite orders with CSV customer regions:");
+Console.WriteLine("Federated query joining SQLite orders and customers with CSV customer regions:");
 using DataFrame df = context.Sql("""
-    SELECT r.region, o.customer, SUM(o.total) AS spend
-    FROM datafusion_orders AS o
+    SELECT r.region, c.loyalty_tier, o.customer, SUM(o.total) AS spend
+    FROM orders.datafusion_orders AS o
+    INNER JOIN orders.datafusion_customers AS c
+        ON o.customer = c.customer
     INNER JOIN customer_regions AS r
         ON o.customer = r.customer
-    GROUP BY r.region, o.customer
-    ORDER BY r.region, o.customer
+    GROUP BY r.region, c.loyalty_tier, o.customer
+    ORDER BY r.region, c.loyalty_tier, o.customer
     """);
 df.Show();
 
@@ -56,13 +62,24 @@ static string CreateSqliteOrders()
             total REAL NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS datafusion_customers (
+            customer TEXT PRIMARY KEY,
+            loyalty_tier TEXT NOT NULL
+        );
+
         DELETE FROM datafusion_orders;
+        DELETE FROM datafusion_customers;
 
         INSERT INTO datafusion_orders (id, customer, total) VALUES
             (1, 'alice', 19.99),
             (2, 'bob', 7.50),
             (3, 'alice', 100.00),
             (4, 'carol', 42.25);
+
+        INSERT INTO datafusion_customers (customer, loyalty_tier) VALUES
+            ('alice', 'gold'),
+            ('bob', 'silver'),
+            ('carol', 'bronze');
         """;
     command.ExecuteNonQuery();
 

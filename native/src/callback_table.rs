@@ -461,28 +461,23 @@ fn register_callback_table(
     callback: ScanCallback,
     guard: ContextGuard,
 ) -> crate::NativeResult<()> {
-        let schema: SchemaRef = Arc::new(
-            decode_optional_schema(schema_ptr, schema_len)?
-                .ok_or("callback table requires a non-empty schema")?,
-        );
-        let table = ManagedCallbackTable {
-            schema,
-            callback,
-            context: Arc::new(guard),
-            supports_pushdown: supports_pushdown != 0,
-        };
-        ctx.register_table(table_ref, Arc::new(table))?;
-        Ok(())
+    let schema: SchemaRef = Arc::new(
+        decode_optional_schema(schema_ptr, schema_len)?
+            .ok_or("callback table requires a non-empty schema")?,
+    );
+    let table = ManagedCallbackTable {
+        schema,
+        callback,
+        context: Arc::new(guard),
+        supports_pushdown: supports_pushdown != 0,
+    };
+    ctx.register_table(table_ref, Arc::new(table))?;
+    Ok(())
 }
 
 fn register_default_schema(ctx: &SessionContext, schema_name: &str) -> crate::NativeResult<()> {
     let state = ctx.state();
-    let default_catalog = state
-        .config()
-        .options()
-        .catalog
-        .default_catalog
-        .as_str();
+    let default_catalog = state.config().options().catalog.default_catalog.as_str();
     let catalog = ctx
         .catalog(default_catalog)
         .ok_or_else(|| format!("failed to resolve catalog: {default_catalog}"))?;
