@@ -15,15 +15,26 @@
 // specific language governing permissions and limitations
 // under the License.
 
-namespace Apache.DataFusion.TableProviders.ClickHouse;
+using System.Data.Common;
+using System.Globalization;
+using Apache.Arrow;
 
-public sealed class ClickHouseTableOptions
+namespace Apache.DataFusion.TableProviders.PostgreSql;
+
+internal sealed class FloatColumnAppender(int ordinal) : ColumnAppender(ordinal)
 {
-    public required string ConnectionString { get; init; }
+    private readonly FloatArray.Builder builder = new();
 
-    public string? DatabaseName { get; init; }
+    public override void Append(DbDataReader reader)
+    {
+        if (reader.IsDBNull(Ordinal))
+        {
+            builder.AppendNull();
+            return;
+        }
 
-    public required string TableName { get; init; }
+        builder.Append(Convert.ToSingle(reader.GetValue(Ordinal), CultureInfo.InvariantCulture));
+    }
 
-    public int BatchSize { get; init; } = 1024;
+    public override IArrowArray Build() => builder.Build();
 }

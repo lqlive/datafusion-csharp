@@ -51,16 +51,12 @@ using (MySqlConnection connection = new(connectionString))
 }
 
 using SessionContext context = new();
-context.RegisterMySql("orders", new MySqlTableOptions
-{
-    ConnectionString = connectionString,
-    Query = """SELECT id, customer, total FROM datafusion_orders""",
-});
+context.RegisterMySql(connectionString);
 
 Console.WriteLine("Customer spend from a MySQL-backed streaming table:");
 using DataFrame df = context.Sql("""
     SELECT customer, SUM(total) AS spend
-    FROM orders
+    FROM datafusion_orders
     GROUP BY customer
     ORDER BY customer
     """);

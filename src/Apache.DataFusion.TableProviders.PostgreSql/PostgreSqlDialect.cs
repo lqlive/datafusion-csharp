@@ -15,15 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-namespace Apache.DataFusion.TableProviders.ClickHouse;
+using Apache.DataFusion.TableProviders.PostgreSql.Sql;
 
-public sealed class ClickHouseTableOptions
+namespace Apache.DataFusion.TableProviders.PostgreSql;
+
+internal sealed class PostgreSqlDialect : SqlDialect
 {
-    public required string ConnectionString { get; init; }
+    public static PostgreSqlDialect Instance { get; } = new();
 
-    public string? DatabaseName { get; init; }
+    private PostgreSqlDialect()
+    {
+    }
 
-    public required string TableName { get; init; }
-
-    public int BatchSize { get; init; } = 1024;
+    public override string QuoteIdentifier(string identifier) =>
+        $"\"{identifier.Replace("\"", "\"\"", StringComparison.Ordinal)}\"";
 }

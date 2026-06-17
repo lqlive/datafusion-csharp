@@ -16,57 +16,48 @@
 // under the License.
 
 using Apache.DataFusion;
-using Apache.DataFusion.TableProviders.ClickHouse;
+using Apache.DataFusion.TableProviders.PostgreSql;
+using Npgsql;
 
-using ClickHouse.Driver.ADO;
-
-string? connectionString = Environment.GetEnvironmentVariable("DATAFUSION_CLICKHOUSE_CONNECTION");
+string? connectionString = Environment.GetEnvironmentVariable("DATAFUSION_POSTGRESQL_CONNECTION");
 if (string.IsNullOrWhiteSpace(connectionString))
 {
-    Console.WriteLine("Set DATAFUSION_CLICKHOUSE_CONNECTION to run this sample.");
+    Console.WriteLine("Set DATAFUSION_POSTGRESQL_CONNECTION to run this sample.");
     Console.WriteLine("Example:");
-    Console.WriteLine("  Host=localhost;Port=8123;Username=default;Password=;Database=default");
+    Console.WriteLine("  Host=localhost;Username=postgres;Password=pass;Database=datafusion_sample");
     return;
 }
 
-using (ClickHouseConnection connection = new(connectionString))
+using (NpgsqlConnection connection = new(connectionString))
 {
     connection.Open();
-    Execute(connection, """
-        CREATE TABLE IF NOT EXISTS datafusion_orders
-        (
-            id Int32,
-            customer String,
-            total Float64
-        )
-        ENGINE = Memory
-        """);
-    Execute(connection, "TRUNCATE TABLE datafusion_orders");
-    Execute(connection, """
+    using NpgsqlCommand command = connection.CreateCommand();
+    command.CommandText = """
+        CREATE TABLE IF NOT EXISTS datafusion_orders (
+            id INTEGER PRIMARY KEY,
+            customer VARCHAR(64) NOT NULL,
+            total DOUBLE PRECISION NOT NULL
+        );
+
+        DELETE FROM datafusion_orders;
+
         INSERT INTO datafusion_orders (id, customer, total) VALUES
             (1, 'alice', 19.99),
             (2, 'bob', 7.50),
             (3, 'alice', 100.00),
-            (4, 'carol', 42.25)
-        """);
+            (4, 'carol', 42.25);
+        """;
+    command.ExecuteNonQuery();
 }
 
 using SessionContext context = new();
-context.RegisterClickHouse(connectionString);
+context.RegisterPostgreSql(connectionString);
 
-Console.WriteLine("Customer spend from a ClickHouse-backed streaming table:");
+Console.WriteLine("Customer spend from a PostgreSQL-backed streaming table:");
 using DataFrame df = context.Sql("""
     SELECT customer, SUM(total) AS spend
     FROM datafusion_orders
-    WHERE total >= 10
     GROUP BY customer
     ORDER BY customer
     """);
 df.Show();
-
-static void Execute(ClickHouseConnection connection, string sql)
-{
-    using var command = connection.CreateCommand();
-    command.CommandText = sql;
-    command.ExecuteNonQuery();
-}

@@ -19,20 +19,20 @@ using System.Data;
 using System.Data.Common;
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
-using Apache.DataFusion.TableProviders.MySql.Sql;
-using MySqlConnector;
+using Apache.DataFusion.TableProviders.PostgreSql.Sql;
+using Npgsql;
 
-namespace Apache.DataFusion.TableProviders.MySql;
+namespace Apache.DataFusion.TableProviders.PostgreSql;
 
-public sealed class MySqlStreamingTableProvider : StreamingTableProvider
+public sealed class PostgreSqlStreamingTableProvider : StreamingTableProvider
 {
     private readonly string connectionString;
     private readonly string sourceSql;
     private readonly int batchSize;
     private readonly ColumnPlan[] columns;
-    private readonly SqlQueryBuilder queryBuilder = new(MySqlDialect.Instance);
+    private readonly SqlQueryBuilder queryBuilder = new(PostgreSqlDialect.Instance);
 
-    public MySqlStreamingTableProvider(MySqlTableOptions options)
+    public PostgreSqlStreamingTableProvider(PostgreSqlTableOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
         if (string.IsNullOrWhiteSpace(options.ConnectionString))
@@ -57,7 +57,7 @@ public sealed class MySqlStreamingTableProvider : StreamingTableProvider
     public override bool SupportsPushdown => true;
 
     public override IArrowArrayStream Scan() =>
-        new MySqlArrowArrayStream(connectionString, sourceSql, Schema, columns, batchSize);
+        new PostgreSqlArrowArrayStream(connectionString, sourceSql, Schema, columns, batchSize);
 
     public override IArrowArrayStream Scan(StreamingTableScanRequest request)
     {
@@ -66,7 +66,7 @@ public sealed class MySqlStreamingTableProvider : StreamingTableProvider
         PushedQuery pushedQuery = queryBuilder.Build(sourceSql, request);
         ColumnPlan[] projectedColumns = ProjectColumns(request);
         Schema projectedSchema = BuildSchema(projectedColumns);
-        return new MySqlArrowArrayStream(
+        return new PostgreSqlArrowArrayStream(
             connectionString,
             pushedQuery.Sql,
             projectedSchema,
@@ -75,27 +75,23 @@ public sealed class MySqlStreamingTableProvider : StreamingTableProvider
             pushedQuery.Parameters);
     }
 
-    private static string BuildSourceSql(MySqlTableOptions options)
+    private static string BuildSourceSql(PostgreSqlTableOptions options)
     {
         if (string.IsNullOrWhiteSpace(options.TableName))
         {
             throw new ArgumentException("Table name must be provided.", nameof(options));
         }
 
-        return $"SELECT * FROM {QuoteQualifiedTableName(options.DatabaseName, options.TableName)}";
+        string schemaName = string.IsNullOrWhiteSpace(options.SchemaName) ? "public" : options.SchemaName;
+        return $"SELECT * FROM {QuoteQualifiedTableName(schemaName, options.TableName)}";
     }
 
-    private static string QuoteQualifiedTableName(string? databaseName, string tableName)
-    {
-        string quotedTable = MySqlDialect.Instance.QuoteIdentifier(tableName);
-        return string.IsNullOrWhiteSpace(databaseName)
-            ? quotedTable
-            : $"{MySqlDialect.Instance.QuoteIdentifier(databaseName)}.{quotedTable}";
-    }
+    private static string QuoteQualifiedTableName(string schemaName, string tableName) =>
+        $"{PostgreSqlDialect.Instance.QuoteIdentifier(schemaName)}.{PostgreSqlDialect.Instance.QuoteIdentifier(tableName)}";
 
     private static ColumnPlan[] FetchColumns(string connectionString, string query)
     {
-        using MySqlConnection connection = new(connectionString);
+        using NpgsqlConnection connection = new(connectionString);
         connection.Open();
 
         using DbCommand command = connection.CreateCommand();
@@ -134,8 +130,7 @@ public sealed class MySqlStreamingTableProvider : StreamingTableProvider
         return request.Projection
             .Select(name => byName.TryGetValue(name, out ColumnPlan? column)
                 ? column
-                : throw new InvalidOperationException($"MySQL table provider does not contain column '{name}'."))
+                : throw new InvalidOperationException($"PostgreSQL table provider does not contain column '{name}'."))
             .ToArray();
     }
-
 }

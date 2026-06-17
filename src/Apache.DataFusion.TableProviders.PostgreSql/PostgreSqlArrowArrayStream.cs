@@ -19,28 +19,28 @@ using System.Data;
 using System.Data.Common;
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
-using Apache.DataFusion.TableProviders.ClickHouse.Sql;
-using ClickHouse.Driver.ADO;
+using Apache.DataFusion.TableProviders.PostgreSql.Sql;
+using Npgsql;
 
-namespace Apache.DataFusion.TableProviders.ClickHouse;
+namespace Apache.DataFusion.TableProviders.PostgreSql;
 
-internal sealed class ClickHouseArrowArrayStream : IArrowArrayStream
+internal sealed class PostgreSqlArrowArrayStream : IArrowArrayStream
 {
     private readonly Schema schema;
     private readonly ColumnPlan[] columns;
     private readonly int batchSize;
-    private ClickHouseConnection? connection;
+    private NpgsqlConnection? connection;
     private DbCommand? command;
     private DbDataReader? reader;
     private bool finished;
 
-    public ClickHouseArrowArrayStream(
+    public PostgreSqlArrowArrayStream(
         string connectionString,
         string query,
         Schema schema,
         ColumnPlan[] columns,
         int batchSize,
-        IReadOnlyList<ClickHouseQueryParameter>? parameters = null)
+        IReadOnlyList<SqlQueryParameter>? parameters = null)
     {
         this.schema = schema;
         this.columns = columns;
@@ -48,14 +48,14 @@ internal sealed class ClickHouseArrowArrayStream : IArrowArrayStream
 
         try
         {
-            connection = new ClickHouseConnection(connectionString);
+            connection = new NpgsqlConnection(connectionString);
             connection.Open();
 
             command = connection.CreateCommand();
             command.CommandText = query;
             if (parameters is not null)
             {
-                foreach (ClickHouseQueryParameter parameter in parameters)
+                foreach (SqlQueryParameter parameter in parameters)
                 {
                     DbParameter dbParameter = command.CreateParameter();
                     dbParameter.ParameterName = parameter.Name;

@@ -15,15 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-namespace Apache.DataFusion.TableProviders.ClickHouse;
+namespace Apache.DataFusion.TableProviders.PostgreSql.Sql;
 
-public sealed class ClickHouseTableOptions
-{
-    public required string ConnectionString { get; init; }
-
-    public string? DatabaseName { get; init; }
-
-    public required string TableName { get; init; }
-
-    public int BatchSize { get; init; } = 1024;
-}
+internal sealed record PushedQuery(string Sql, IReadOnlyList<SqlQueryParameter> Parameters);

@@ -15,15 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
-namespace Apache.DataFusion.TableProviders.ClickHouse;
+namespace Apache.DataFusion.TableProviders.MongoDB;
 
-public sealed class ClickHouseTableOptions
+public sealed class MongoDbDatabaseOptions
 {
     public required string ConnectionString { get; init; }
 
     public string? DatabaseName { get; init; }
 
-    public required string TableName { get; init; }
-
     public int BatchSize { get; init; } = 1024;
+
+    public int SchemaInferenceLimit { get; init; } = 100;
 }

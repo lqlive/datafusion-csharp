@@ -15,15 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-namespace Apache.DataFusion.TableProviders.ClickHouse;
+namespace Apache.DataFusion.TableProviders.PostgreSql.Sql;
 
-public sealed class ClickHouseTableOptions
+internal abstract class SqlDialect
 {
-    public required string ConnectionString { get; init; }
+    public abstract string QuoteIdentifier(string identifier);
 
-    public string? DatabaseName { get; init; }
+    public virtual string ParameterName(int index) => $"@df_filter_{index}";
 
-    public required string TableName { get; init; }
-
-    public int BatchSize { get; init; } = 1024;
+    public virtual string OperatorSql(StreamingTableFilterOperator op) => op switch
+    {
+        StreamingTableFilterOperator.Equal => "=",
+        StreamingTableFilterOperator.NotEqual => "<>",
+        StreamingTableFilterOperator.LessThan => "<",
+        StreamingTableFilterOperator.LessThanOrEqual => "<=",
+        StreamingTableFilterOperator.GreaterThan => ">",
+        StreamingTableFilterOperator.GreaterThanOrEqual => ">=",
+        _ => throw new NotSupportedException($"Unsupported filter operator '{op}'."),
+    };
 }

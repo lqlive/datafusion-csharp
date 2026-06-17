@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-namespace Apache.DataFusion.TableProviders.ClickHouse;
+namespace Apache.DataFusion.TableProviders.PostgreSql;
 
-public sealed class ClickHouseTableOptions
+public sealed class PostgreSqlTableOptions
 {
     public required string ConnectionString { get; init; }
 
-    public string? DatabaseName { get; init; }
+    public string SchemaName { get; init; } = "public";
 
     public required string TableName { get; init; }
 

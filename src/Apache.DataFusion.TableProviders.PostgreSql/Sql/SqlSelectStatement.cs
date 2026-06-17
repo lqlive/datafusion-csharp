@@ -15,15 +15,34 @@
 // specific language governing permissions and limitations
 // under the License.
 
-namespace Apache.DataFusion.TableProviders.ClickHouse;
+using System.Globalization;
 
-public sealed class ClickHouseTableOptions
+namespace Apache.DataFusion.TableProviders.PostgreSql.Sql;
+
+internal sealed record SqlSelectStatement(
+    string Projection,
+    string Source,
+    IReadOnlyList<string> Predicates,
+    ulong? Limit)
 {
-    public required string ConnectionString { get; init; }
+    public string ToSql()
+    {
+        List<string> clauses =
+        [
+            $"SELECT {Projection}",
+            $"FROM ({Source}) AS df_source",
+        ];
 
-    public string? DatabaseName { get; init; }
+        if (Predicates.Count > 0)
+        {
+            clauses.Add($"WHERE {string.Join(" AND ", Predicates)}");
+        }
 
-    public required string TableName { get; init; }
+        if (Limit.HasValue)
+        {
+            clauses.Add($"LIMIT {Limit.Value.ToString(CultureInfo.InvariantCulture)}");
+        }
 
-    public int BatchSize { get; init; } = 1024;
+        return string.Join(" ", clauses);
+    }
 }

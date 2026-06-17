@@ -17,13 +17,13 @@
 
 namespace Apache.DataFusion.TableProviders.ClickHouse;
 
-public sealed class ClickHouseTableOptions
+public sealed class ClickHouseDatabaseOptions
 {
     public required string ConnectionString { get; init; }
 
     public string? DatabaseName { get; init; }
 
-    public required string TableName { get; init; }
+    public bool IncludeViews { get; init; } = true;
 
     public int BatchSize { get; init; } = 1024;
 }
