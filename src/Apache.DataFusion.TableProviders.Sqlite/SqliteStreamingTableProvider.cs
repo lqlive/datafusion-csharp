@@ -26,7 +26,7 @@ namespace Apache.DataFusion.TableProviders.Sqlite;
 
 public sealed class SqliteStreamingTableProvider : StreamingTableProvider
 {
-    private readonly string connectionString;
+    private readonly Func<SqliteConnection> connectionFactory;
     private readonly string sourceSql;
     private readonly int batchSize;
     private readonly ColumnPlan[] columns;
@@ -35,20 +35,15 @@ public sealed class SqliteStreamingTableProvider : StreamingTableProvider
     public SqliteStreamingTableProvider(SqliteTableOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        if (string.IsNullOrWhiteSpace(options.ConnectionString))
-        {
-            throw new ArgumentException("Connection string cannot be null or whitespace.", nameof(options));
-        }
-
         if (options.BatchSize <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(options), options.BatchSize, "Batch size must be greater than zero.");
         }
 
-        connectionString = options.ConnectionString;
+        connectionFactory = options.ConnectionFactory ?? CreateConnectionFactory(options.ConnectionString, nameof(options));
         sourceSql = BuildSourceSql(options);
         batchSize = options.BatchSize;
-        columns = FetchColumns(connectionString, sourceSql);
+        columns = FetchColumns(connectionFactory, sourceSql);
         Schema = BuildSchema(columns);
     }
 
@@ -57,7 +52,7 @@ public sealed class SqliteStreamingTableProvider : StreamingTableProvider
     public override bool SupportsPushdown => true;
 
     public override IArrowArrayStream Scan() =>
-        new SqliteArrowArrayStream(connectionString, sourceSql, Schema, columns, batchSize);
+        new SqliteArrowArrayStream(connectionFactory, sourceSql, Schema, columns, batchSize);
 
     public override IArrowArrayStream Scan(StreamingTableScanRequest request)
     {
@@ -67,12 +62,22 @@ public sealed class SqliteStreamingTableProvider : StreamingTableProvider
         ColumnPlan[] projectedColumns = ProjectColumns(request);
         Schema projectedSchema = BuildSchema(projectedColumns);
         return new SqliteArrowArrayStream(
-            connectionString,
+            connectionFactory,
             pushedQuery.Sql,
             projectedSchema,
             projectedColumns,
             batchSize,
             pushedQuery.Parameters);
+    }
+
+    private static Func<SqliteConnection> CreateConnectionFactory(string? connectionString, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new ArgumentException("Connection string cannot be null or whitespace when a connection factory is not provided.", parameterName);
+        }
+
+        return () => new SqliteConnection(connectionString);
     }
 
     private static string BuildSourceSql(SqliteTableOptions options)
@@ -85,9 +90,9 @@ public sealed class SqliteStreamingTableProvider : StreamingTableProvider
         return $"SELECT * FROM {SqliteDialect.Instance.QuoteIdentifier(options.TableName)}";
     }
 
-    private static ColumnPlan[] FetchColumns(string connectionString, string query)
+    private static ColumnPlan[] FetchColumns(Func<SqliteConnection> connectionFactory, string query)
     {
-        using SqliteConnection connection = new(connectionString);
+        using SqliteConnection connection = connectionFactory();
         connection.Open();
 
         using DbCommand command = connection.CreateCommand();

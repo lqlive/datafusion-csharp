@@ -26,7 +26,7 @@ namespace Apache.DataFusion.TableProviders.ClickHouse;
 
 public sealed class ClickHouseStreamingTableProvider : StreamingTableProvider
 {
-    private readonly string connectionString;
+    private readonly Func<ClickHouseConnection> connectionFactory;
     private readonly string sourceSql;
     private readonly int batchSize;
     private readonly ColumnPlan[] columns;
@@ -35,20 +35,15 @@ public sealed class ClickHouseStreamingTableProvider : StreamingTableProvider
     public ClickHouseStreamingTableProvider(ClickHouseTableOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        if (string.IsNullOrWhiteSpace(options.ConnectionString))
-        {
-            throw new ArgumentException("Connection string cannot be null or whitespace.", nameof(options));
-        }
-
         if (options.BatchSize <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(options), options.BatchSize, "Batch size must be greater than zero.");
         }
 
-        connectionString = options.ConnectionString;
+        connectionFactory = options.ConnectionFactory ?? CreateConnectionFactory(options.ConnectionString, nameof(options));
         sourceSql = BuildSourceSql(options);
         batchSize = options.BatchSize;
-        columns = FetchColumns(connectionString, sourceSql);
+        columns = FetchColumns(connectionFactory, sourceSql);
         Schema = BuildSchema(columns);
     }
 
@@ -57,7 +52,7 @@ public sealed class ClickHouseStreamingTableProvider : StreamingTableProvider
     public override bool SupportsPushdown => true;
 
     public override IArrowArrayStream Scan() =>
-        new ClickHouseArrowArrayStream(connectionString, sourceSql, Schema, columns, batchSize);
+        new ClickHouseArrowArrayStream(connectionFactory, sourceSql, Schema, columns, batchSize);
 
     public override IArrowArrayStream Scan(StreamingTableScanRequest request)
     {
@@ -67,12 +62,27 @@ public sealed class ClickHouseStreamingTableProvider : StreamingTableProvider
         ColumnPlan[] projectedColumns = ProjectColumns(request);
         Schema projectedSchema = BuildSchema(projectedColumns);
         return new ClickHouseArrowArrayStream(
-            connectionString,
+            connectionFactory,
             pushedQuery.Sql,
             projectedSchema,
             projectedColumns,
             batchSize,
             pushedQuery.Parameters);
+    }
+
+    private static Func<ClickHouseConnection> CreateConnectionFactory(string? connectionString, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new ArgumentException("Connection string cannot be null or whitespace when a connection factory is not provided.", parameterName);
+        }
+
+        // A ClickHouseDataSource owns a single underlying client, so every
+        // connection it hands out shares the same HTTP connection pool. This
+        // avoids a fresh TLS handshake on each scan, unlike constructing a
+        // standalone ClickHouseConnection per call.
+        ClickHouseDataSource dataSource = new(connectionString);
+        return dataSource.CreateConnection;
     }
 
     private static string BuildSourceSql(ClickHouseTableOptions options)
@@ -93,9 +103,9 @@ public sealed class ClickHouseStreamingTableProvider : StreamingTableProvider
             : $"{ClickHouseDialect.Instance.QuoteIdentifier(databaseName)}.{quotedTable}";
     }
 
-    private static ColumnPlan[] FetchColumns(string connectionString, string query)
+    private static ColumnPlan[] FetchColumns(Func<ClickHouseConnection> connectionFactory, string query)
     {
-        using ClickHouseConnection connection = new(connectionString);
+        using ClickHouseConnection connection = connectionFactory();
         connection.Open();
 
         using DbCommand command = connection.CreateCommand();

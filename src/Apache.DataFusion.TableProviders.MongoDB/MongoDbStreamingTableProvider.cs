@@ -32,11 +32,6 @@ public sealed class MongoDbStreamingTableProvider : StreamingTableProvider
     public MongoDbStreamingTableProvider(MongoDbTableOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        if (string.IsNullOrWhiteSpace(options.ConnectionString))
-        {
-            throw new ArgumentException("Connection string cannot be null or whitespace.", nameof(options));
-        }
-
         if (string.IsNullOrWhiteSpace(options.DatabaseName))
         {
             throw new ArgumentException("Database name cannot be null or whitespace.", nameof(options));
@@ -58,7 +53,7 @@ public sealed class MongoDbStreamingTableProvider : StreamingTableProvider
         }
 
         batchSize = options.BatchSize;
-        MongoClient client = new(options.ConnectionString);
+        IMongoClient client = options.Client ?? CreateClient(options.ConnectionString, nameof(options));
         collection = client.GetDatabase(options.DatabaseName).GetCollection<BsonDocument>(options.CollectionName);
         columns = InferColumns(collection, options.SchemaInferenceLimit);
         Schema = BuildSchema(columns);
@@ -84,6 +79,16 @@ public sealed class MongoDbStreamingTableProvider : StreamingTableProvider
         MongoDbQuery query = queryBuilder.Build(request, projectedColumns);
         Schema projectedSchema = BuildSchema(projectedColumns);
         return new MongoDbArrowArrayStream(collection, query, projectedSchema, projectedColumns, batchSize);
+    }
+
+    private static IMongoClient CreateClient(string? connectionString, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new ArgumentException("Connection string cannot be null or whitespace when a MongoDB client is not provided.", parameterName);
+        }
+
+        return new MongoClient(connectionString);
     }
 
     private MongoDbColumnPlan[] ProjectColumns(StreamingTableScanRequest request)

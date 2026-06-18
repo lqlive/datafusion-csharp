@@ -26,7 +26,7 @@ namespace Apache.DataFusion.TableProviders.PostgreSql;
 
 public sealed class PostgreSqlStreamingTableProvider : StreamingTableProvider
 {
-    private readonly string connectionString;
+    private readonly NpgsqlDataSource dataSource;
     private readonly string sourceSql;
     private readonly int batchSize;
     private readonly ColumnPlan[] columns;
@@ -35,20 +35,15 @@ public sealed class PostgreSqlStreamingTableProvider : StreamingTableProvider
     public PostgreSqlStreamingTableProvider(PostgreSqlTableOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        if (string.IsNullOrWhiteSpace(options.ConnectionString))
-        {
-            throw new ArgumentException("Connection string cannot be null or whitespace.", nameof(options));
-        }
-
         if (options.BatchSize <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(options), options.BatchSize, "Batch size must be greater than zero.");
         }
 
-        connectionString = options.ConnectionString;
+        dataSource = options.DataSource ?? CreateDataSource(options.ConnectionString, nameof(options));
         sourceSql = BuildSourceSql(options);
         batchSize = options.BatchSize;
-        columns = FetchColumns(connectionString, sourceSql);
+        columns = FetchColumns(dataSource, sourceSql);
         Schema = BuildSchema(columns);
     }
 
@@ -57,7 +52,7 @@ public sealed class PostgreSqlStreamingTableProvider : StreamingTableProvider
     public override bool SupportsPushdown => true;
 
     public override IArrowArrayStream Scan() =>
-        new PostgreSqlArrowArrayStream(connectionString, sourceSql, Schema, columns, batchSize);
+        new PostgreSqlArrowArrayStream(dataSource, sourceSql, Schema, columns, batchSize);
 
     public override IArrowArrayStream Scan(StreamingTableScanRequest request)
     {
@@ -67,12 +62,22 @@ public sealed class PostgreSqlStreamingTableProvider : StreamingTableProvider
         ColumnPlan[] projectedColumns = ProjectColumns(request);
         Schema projectedSchema = BuildSchema(projectedColumns);
         return new PostgreSqlArrowArrayStream(
-            connectionString,
+            dataSource,
             pushedQuery.Sql,
             projectedSchema,
             projectedColumns,
             batchSize,
             pushedQuery.Parameters);
+    }
+
+    private static NpgsqlDataSource CreateDataSource(string? connectionString, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new ArgumentException("Connection string cannot be null or whitespace when a data source is not provided.", parameterName);
+        }
+
+        return NpgsqlDataSource.Create(connectionString);
     }
 
     private static string BuildSourceSql(PostgreSqlTableOptions options)
@@ -89,10 +94,9 @@ public sealed class PostgreSqlStreamingTableProvider : StreamingTableProvider
     private static string QuoteQualifiedTableName(string schemaName, string tableName) =>
         $"{PostgreSqlDialect.Instance.QuoteIdentifier(schemaName)}.{PostgreSqlDialect.Instance.QuoteIdentifier(tableName)}";
 
-    private static ColumnPlan[] FetchColumns(string connectionString, string query)
+    private static ColumnPlan[] FetchColumns(NpgsqlDataSource dataSource, string query)
     {
-        using NpgsqlConnection connection = new(connectionString);
-        connection.Open();
+        using NpgsqlConnection connection = dataSource.OpenConnection();
 
         using DbCommand command = connection.CreateCommand();
         command.CommandText = query;

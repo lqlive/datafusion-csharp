@@ -15,11 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+using ClickHouse.Driver.ADO;
+
 namespace Apache.DataFusion.TableProviders.ClickHouse;
 
 public sealed class ClickHouseTableOptions
 {
-    public required string ConnectionString { get; init; }
+    public string? ConnectionString { get; init; }
+
+    public Func<ClickHouseConnection>? ConnectionFactory { get; init; }
 
     public string? DatabaseName { get; init; }
 

@@ -15,11 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+using MySqlConnector;
+
 namespace Apache.DataFusion.TableProviders.MySql;
 
 public sealed class MySqlDatabaseOptions
 {
-    public required string ConnectionString { get; init; }
+    public string? ConnectionString { get; init; }
+
+    public MySqlDataSource? DataSource { get; init; }
 
     public string? SourceName { get; init; }
 
