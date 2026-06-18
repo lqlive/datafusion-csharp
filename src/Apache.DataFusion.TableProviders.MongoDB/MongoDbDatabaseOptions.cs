@@ -32,4 +32,6 @@ public sealed class MongoDbDatabaseOptions
     public int BatchSize { get; init; } = 1024;
 
     public int SchemaInferenceLimit { get; init; } = 100;
+
+    public int? DefaultLimit { get; init; } = 500;
 }

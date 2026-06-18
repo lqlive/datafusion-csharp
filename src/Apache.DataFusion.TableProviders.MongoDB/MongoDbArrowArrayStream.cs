@@ -27,7 +27,9 @@ internal sealed class MongoDbArrowArrayStream : IArrowArrayStream
     private readonly Schema schema;
     private readonly MongoDbColumnPlan[] columns;
     private readonly int batchSize;
-    private readonly IAsyncCursor<BsonDocument> cursor;
+    private readonly IMongoCollection<BsonDocument> collection;
+    private readonly MongoDbQuery query;
+    private IAsyncCursor<BsonDocument>? cursor;
     private IEnumerator<BsonDocument>? currentBatch;
     private bool finished;
 
@@ -41,25 +43,8 @@ internal sealed class MongoDbArrowArrayStream : IArrowArrayStream
         this.schema = schema;
         this.columns = columns;
         this.batchSize = batchSize;
-
-        IFindFluent<BsonDocument, BsonDocument> find = collection.Find(query.Filter);
-        if (query.Projection is not null)
-        {
-            find = find.Project<BsonDocument>(query.Projection);
-        }
-
-        if (query.Limit.HasValue)
-        {
-            if (query.Limit.Value > int.MaxValue)
-            {
-                throw new ArgumentOutOfRangeException(nameof(query), query.Limit, "MongoDB limit cannot exceed Int32.MaxValue.");
-            }
-
-            find = find.Limit((int)query.Limit.Value);
-        }
-
-        find.Options.BatchSize = batchSize;
-        cursor = find.ToCursor();
+        this.collection = collection;
+        this.query = query;
     }
 
     public Schema Schema => schema;
@@ -104,12 +89,14 @@ internal sealed class MongoDbArrowArrayStream : IArrowArrayStream
     public void Dispose()
     {
         currentBatch?.Dispose();
-        cursor.Dispose();
+        cursor?.Dispose();
         currentBatch = null;
+        cursor = null;
     }
 
     private bool TryReadNextDocument(out BsonDocument document)
     {
+        IAsyncCursor<BsonDocument> activeCursor = EnsureCursor();
         while (true)
         {
             if (currentBatch is not null && currentBatch.MoveNext())
@@ -120,13 +107,41 @@ internal sealed class MongoDbArrowArrayStream : IArrowArrayStream
 
             currentBatch?.Dispose();
             currentBatch = null;
-            if (!cursor.MoveNext())
+            if (!activeCursor.MoveNext())
             {
                 document = [];
                 return false;
             }
 
-            currentBatch = cursor.Current.GetEnumerator();
+            currentBatch = activeCursor.Current.GetEnumerator();
         }
+    }
+
+    private IAsyncCursor<BsonDocument> EnsureCursor()
+    {
+        if (cursor is not null)
+        {
+            return cursor;
+        }
+
+        IFindFluent<BsonDocument, BsonDocument> find = collection.Find(query.Filter);
+        if (query.Projection is not null)
+        {
+            find = find.Project<BsonDocument>(query.Projection);
+        }
+
+        if (query.Limit.HasValue)
+        {
+            if (query.Limit.Value > int.MaxValue)
+            {
+                throw new ArgumentOutOfRangeException(nameof(query), query.Limit, "MongoDB limit cannot exceed Int32.MaxValue.");
+            }
+
+            find = find.Limit((int)query.Limit.Value);
+        }
+
+        find.Options.BatchSize = batchSize;
+        cursor = find.ToCursor();
+        return cursor;
     }
 }
