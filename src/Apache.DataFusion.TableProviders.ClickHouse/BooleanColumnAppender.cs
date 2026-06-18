@@ -16,7 +16,6 @@
 // under the License.
 
 using System.Data.Common;
-using System.Globalization;
 using Apache.Arrow;
 
 namespace Apache.DataFusion.TableProviders.ClickHouse;
@@ -33,7 +32,7 @@ internal sealed class BooleanColumnAppender(int ordinal) : ColumnAppender(ordina
             return;
         }
 
-        builder.Append(Convert.ToBoolean(reader.GetValue(Ordinal), CultureInfo.InvariantCulture));
+        builder.Append(reader.GetBoolean(Ordinal));
     }
 
     public override IArrowArray Build() => builder.Build();

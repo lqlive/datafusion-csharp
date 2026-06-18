@@ -15,9 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-using System.Data.Common;
-using System.Globalization;
 using Apache.Arrow;
+using MySqlConnector;
 
 namespace Apache.DataFusion.TableProviders.MySql;
 
@@ -25,7 +24,7 @@ internal sealed class FloatColumnAppender(int ordinal) : ColumnAppender(ordinal)
 {
     private readonly FloatArray.Builder builder = new();
 
-    public override void Append(DbDataReader reader)
+    public override void Append(MySqlDataReader reader)
     {
         if (reader.IsDBNull(Ordinal))
         {
@@ -33,7 +32,7 @@ internal sealed class FloatColumnAppender(int ordinal) : ColumnAppender(ordinal)
             return;
         }
 
-        builder.Append(Convert.ToSingle(reader.GetValue(Ordinal), CultureInfo.InvariantCulture));
+        builder.Append(reader.GetFloat(Ordinal));
     }
 
     public override IArrowArray Build() => builder.Build();

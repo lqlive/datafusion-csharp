@@ -33,8 +33,8 @@ internal sealed class SqliteArrowArrayStream : IArrowArrayStream
     private readonly string query;
     private readonly IReadOnlyList<SqlQueryParameter>? parameters;
     private SqliteConnection? connection;
-    private DbCommand? command;
-    private DbDataReader? reader;
+    private SqliteCommand? command;
+    private SqliteDataReader? reader;
     private bool finished;
 
     public SqliteArrowArrayStream(
@@ -66,8 +66,7 @@ internal sealed class SqliteArrowArrayStream : IArrowArrayStream
             return new ValueTask<RecordBatch?>((RecordBatch?)null);
         }
 
-        DbDataReader activeReader = EnsureReader();
-
+        SqliteDataReader activeReader = EnsureReader();
         ColumnAppender[] appenders = columns.Select(static column => column.CreateAppender()).ToArray();
         int rowCount = 0;
         while (rowCount < batchSize && activeReader.Read())
@@ -92,7 +91,7 @@ internal sealed class SqliteArrowArrayStream : IArrowArrayStream
         return new ValueTask<RecordBatch?>(batch);
     }
 
-    private DbDataReader EnsureReader()
+    private SqliteDataReader EnsureReader()
     {
         if (reader is not null)
         {

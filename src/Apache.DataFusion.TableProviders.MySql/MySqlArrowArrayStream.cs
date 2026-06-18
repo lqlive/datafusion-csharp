@@ -16,7 +16,6 @@
 // under the License.
 
 using System.Data;
-using System.Data.Common;
 using Apache.Arrow;
 using Apache.Arrow.Ipc;
 using Apache.DataFusion.TableProviders.MySql.Sql;
@@ -34,7 +33,7 @@ internal sealed class MySqlArrowArrayStream : IArrowArrayStream
     private readonly IReadOnlyList<SqlQueryParameter>? parameters;
     private MySqlConnection? connection;
     private MySqlCommand? command;
-    private DbDataReader? reader;
+    private MySqlDataReader? reader;
     private bool finished;
 
     public MySqlArrowArrayStream(
@@ -66,7 +65,7 @@ internal sealed class MySqlArrowArrayStream : IArrowArrayStream
             return new ValueTask<RecordBatch?>((RecordBatch?)null);
         }
 
-        DbDataReader activeReader = EnsureReader();
+        MySqlDataReader activeReader = EnsureReader();
 
         ColumnAppender[] appenders = columns.Select(static column => column.CreateAppender()).ToArray();
         int rowCount = 0;
@@ -92,7 +91,7 @@ internal sealed class MySqlArrowArrayStream : IArrowArrayStream
         return new ValueTask<RecordBatch?>(batch);
     }
 
-    private DbDataReader EnsureReader()
+    private MySqlDataReader EnsureReader()
     {
         if (reader is not null)
         {
