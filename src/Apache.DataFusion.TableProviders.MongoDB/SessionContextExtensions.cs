@@ -44,6 +44,11 @@ public static class SessionContextExtensions
             throw new ArgumentOutOfRangeException(nameof(options), options.SchemaInferenceLimit, "Schema inference limit must be greater than zero.");
         }
 
+        if (options.DefaultLimit.HasValue && options.DefaultLimit.Value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), options.DefaultLimit, "Default limit must be greater than zero when specified.");
+        }
+
         string databaseName = ResolveDatabaseName(options.ConnectionString, options.DatabaseName);
         IMongoClient client = options.Client ?? CreateClient(options.ConnectionString, nameof(options));
         IMongoDatabase database = client.GetDatabase(databaseName);
@@ -57,6 +62,7 @@ public static class SessionContextExtensions
                 CollectionName = collectionName,
                 BatchSize = options.BatchSize,
                 SchemaInferenceLimit = options.SchemaInferenceLimit,
+                DefaultLimit = options.DefaultLimit,
             }));
         }
     }
@@ -65,6 +71,10 @@ public static class SessionContextExtensions
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(options);
+        if (options.DefaultLimit.HasValue && options.DefaultLimit.Value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), options.DefaultLimit, "Default limit must be greater than zero when specified.");
+        }
 
         context.RegisterStreamingTable(name, new MongoDbStreamingTableProvider(options));
     }

@@ -26,6 +26,7 @@ public sealed class MongoDbStreamingTableProvider : StreamingTableProvider
 {
     private readonly IMongoCollection<BsonDocument> collection;
     private readonly int batchSize;
+    private readonly int? defaultLimit;
     private readonly MongoDbColumnPlan[] columns;
     private readonly MongoDbQueryBuilder queryBuilder = new();
 
@@ -52,7 +53,13 @@ public sealed class MongoDbStreamingTableProvider : StreamingTableProvider
             throw new ArgumentOutOfRangeException(nameof(options), options.SchemaInferenceLimit, "Schema inference limit must be greater than zero.");
         }
 
+        if (options.DefaultLimit.HasValue && options.DefaultLimit.Value <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(options), options.DefaultLimit, "Default limit must be greater than zero when specified.");
+        }
+
         batchSize = options.BatchSize;
+        defaultLimit = options.DefaultLimit;
         IMongoClient client = options.Client ?? CreateClient(options.ConnectionString, nameof(options));
         collection = client.GetDatabase(options.DatabaseName).GetCollection<BsonDocument>(options.CollectionName);
         columns = InferColumns(collection, options.SchemaInferenceLimit);
@@ -77,6 +84,11 @@ public sealed class MongoDbStreamingTableProvider : StreamingTableProvider
     {
         MongoDbColumnPlan[] projectedColumns = ProjectColumns(request);
         MongoDbQuery query = queryBuilder.Build(request, projectedColumns);
+        if (!query.Limit.HasValue && defaultLimit.HasValue)
+        {
+            query = query with { Limit = (ulong)defaultLimit.Value };
+        }
+
         Schema projectedSchema = BuildSchema(projectedColumns);
         return new MongoDbArrowArrayStream(collection, query, projectedSchema, projectedColumns, batchSize);
     }
@@ -124,7 +136,11 @@ public sealed class MongoDbStreamingTableProvider : StreamingTableProvider
             builder.Field(field => field
                 .Name(column.Name)
                 .DataType(column.DataType)
-                .Nullable(column.Nullable));
+                // MongoDB collections are schemaless: a field that is present
+                // and non-null in the inference sample can still be missing or
+                // null in later documents. The appenders already emit nulls for
+                // those cases, so expose all MongoDB fields as nullable.
+                .Nullable(true));
         }
 
         return builder.Build();
