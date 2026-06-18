@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-using System.Data.Common;
 using Apache.Arrow;
+using Npgsql;
 
 namespace Apache.DataFusion.TableProviders.PostgreSql;
 
@@ -24,7 +24,7 @@ internal sealed class StringColumnAppender(int ordinal) : ColumnAppender(ordinal
 {
     private readonly StringArray.Builder builder = new();
 
-    public override void Append(DbDataReader reader)
+    public override void Append(NpgsqlDataReader reader)
     {
         if (reader.IsDBNull(Ordinal))
         {
@@ -32,7 +32,7 @@ internal sealed class StringColumnAppender(int ordinal) : ColumnAppender(ordinal
             return;
         }
 
-        builder.Append(FormatValue(reader.GetValue(Ordinal)));
+        builder.Append(reader.GetString(Ordinal));
     }
 
     public override IArrowArray Build() => builder.Build();

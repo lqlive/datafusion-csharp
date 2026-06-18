@@ -32,7 +32,7 @@ internal sealed class StringColumnAppender(int ordinal) : ColumnAppender(ordinal
             return;
         }
 
-        builder.Append(FormatValue(reader.GetValue(Ordinal)));
+        builder.Append(reader.GetString(Ordinal));
     }
 
     public override IArrowArray Build() => builder.Build();

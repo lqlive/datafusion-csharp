@@ -15,9 +15,9 @@
 // specific language governing permissions and limitations
 // under the License.
 
-using System.Data.Common;
 using System.Globalization;
 using Apache.Arrow;
+using Npgsql;
 
 namespace Apache.DataFusion.TableProviders.PostgreSql;
 
@@ -25,7 +25,7 @@ internal abstract class ColumnAppender(int ordinal)
 {
     protected int Ordinal { get; } = ordinal;
 
-    public abstract void Append(DbDataReader reader);
+    public abstract void Append(NpgsqlDataReader reader);
 
     public abstract IArrowArray Build();
 

@@ -15,9 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-using System.Data.Common;
-using System.Globalization;
 using Apache.Arrow;
+using Microsoft.Data.Sqlite;
 
 namespace Apache.DataFusion.TableProviders.Sqlite;
 
@@ -25,7 +24,7 @@ internal sealed class Int64ColumnAppender(int ordinal) : ColumnAppender(ordinal)
 {
     private readonly Int64Array.Builder builder = new();
 
-    public override void Append(DbDataReader reader)
+    public override void Append(SqliteDataReader reader)
     {
         if (reader.IsDBNull(Ordinal))
         {
@@ -33,7 +32,7 @@ internal sealed class Int64ColumnAppender(int ordinal) : ColumnAppender(ordinal)
             return;
         }
 
-        builder.Append(Convert.ToInt64(reader.GetValue(Ordinal), CultureInfo.InvariantCulture));
+        builder.Append(reader.GetInt64(Ordinal));
     }
 
     public override IArrowArray Build() => builder.Build();

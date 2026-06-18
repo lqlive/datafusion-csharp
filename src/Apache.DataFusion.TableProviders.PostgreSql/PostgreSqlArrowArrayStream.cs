@@ -33,8 +33,8 @@ internal sealed class PostgreSqlArrowArrayStream : IArrowArrayStream
     private readonly string query;
     private readonly IReadOnlyList<SqlQueryParameter>? parameters;
     private NpgsqlConnection? connection;
-    private DbCommand? command;
-    private DbDataReader? reader;
+    private NpgsqlCommand? command;
+    private NpgsqlDataReader? reader;
     private bool finished;
 
     public PostgreSqlArrowArrayStream(
@@ -66,7 +66,7 @@ internal sealed class PostgreSqlArrowArrayStream : IArrowArrayStream
             return new ValueTask<RecordBatch?>((RecordBatch?)null);
         }
 
-        DbDataReader activeReader = EnsureReader();
+        NpgsqlDataReader activeReader = EnsureReader();
 
         ColumnAppender[] appenders = columns.Select(static column => column.CreateAppender()).ToArray();
         int rowCount = 0;
@@ -92,7 +92,7 @@ internal sealed class PostgreSqlArrowArrayStream : IArrowArrayStream
         return new ValueTask<RecordBatch?>(batch);
     }
 
-    private DbDataReader EnsureReader()
+    private NpgsqlDataReader EnsureReader()
     {
         if (reader is not null)
         {
