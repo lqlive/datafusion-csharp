@@ -29,26 +29,81 @@ internal sealed class ClickHouseArrowArrayStream : IArrowArrayStream
     private readonly Schema schema;
     private readonly ColumnPlan[] columns;
     private readonly int batchSize;
+    private readonly Func<ClickHouseConnection> connectionFactory;
+    private readonly string query;
+    private readonly IReadOnlyList<ClickHouseQueryParameter>? parameters;
     private ClickHouseConnection? connection;
     private DbCommand? command;
     private DbDataReader? reader;
     private bool finished;
 
     public ClickHouseArrowArrayStream(
-        string connectionString,
+        Func<ClickHouseConnection> connectionFactory,
         string query,
         Schema schema,
         ColumnPlan[] columns,
         int batchSize,
         IReadOnlyList<ClickHouseQueryParameter>? parameters = null)
     {
+        // Defer opening the connection and issuing the query until the first
+        // batch is pulled. The schema is already known from registration, so a
+        // consumer that only inspects the schema never pays for a round trip,
+        // and the query cost shifts out of plan establishment into the first
+        // read.
         this.schema = schema;
         this.columns = columns;
         this.batchSize = batchSize;
+        this.connectionFactory = connectionFactory;
+        this.query = query;
+        this.parameters = parameters;
+    }
+
+    public Schema Schema => schema;
+
+    public ValueTask<RecordBatch?> ReadNextRecordBatchAsync(CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (finished)
+        {
+            return new ValueTask<RecordBatch?>((RecordBatch?)null);
+        }
+
+        DbDataReader activeReader = EnsureReader();
+
+        ColumnAppender[] appenders = columns.Select(static column => column.CreateAppender()).ToArray();
+        int rowCount = 0;
+        while (rowCount < batchSize && activeReader.Read())
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            foreach (ColumnAppender appender in appenders)
+            {
+                appender.Append(activeReader);
+            }
+
+            rowCount++;
+        }
+
+        if (rowCount == 0)
+        {
+            finished = true;
+            return new ValueTask<RecordBatch?>((RecordBatch?)null);
+        }
+
+        IArrowArray[] arrays = appenders.Select(static appender => appender.Build()).ToArray();
+        RecordBatch batch = new(schema, arrays, rowCount);
+        return new ValueTask<RecordBatch?>(batch);
+    }
+
+    private DbDataReader EnsureReader()
+    {
+        if (reader is not null)
+        {
+            return reader;
+        }
 
         try
         {
-            connection = new ClickHouseConnection(connectionString);
+            connection = connectionFactory();
             connection.Open();
 
             command = connection.CreateCommand();
@@ -65,46 +120,13 @@ internal sealed class ClickHouseArrowArrayStream : IArrowArrayStream
             }
 
             reader = command.ExecuteReader(CommandBehavior.SequentialAccess);
+            return reader;
         }
         catch
         {
             Dispose();
             throw;
         }
-    }
-
-    public Schema Schema => schema;
-
-    public ValueTask<RecordBatch?> ReadNextRecordBatchAsync(CancellationToken cancellationToken = default)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-        if (finished || reader is null)
-        {
-            return new ValueTask<RecordBatch?>((RecordBatch?)null);
-        }
-
-        ColumnAppender[] appenders = columns.Select(static column => column.CreateAppender()).ToArray();
-        int rowCount = 0;
-        while (rowCount < batchSize && reader.Read())
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            foreach (ColumnAppender appender in appenders)
-            {
-                appender.Append(reader);
-            }
-
-            rowCount++;
-        }
-
-        if (rowCount == 0)
-        {
-            finished = true;
-            return new ValueTask<RecordBatch?>((RecordBatch?)null);
-        }
-
-        IArrowArray[] arrays = appenders.Select(static appender => appender.Build()).ToArray();
-        RecordBatch batch = new(schema, arrays, rowCount);
-        return new ValueTask<RecordBatch?>(batch);
     }
 
     public void Dispose()

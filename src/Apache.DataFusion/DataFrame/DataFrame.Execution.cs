@@ -62,12 +62,21 @@ public sealed partial class DataFrame
     public ArrowBatchReader ExecuteStream() => ExecuteStream(CancellationToken.None);
 
     /// <summary>
-    /// Execute the plan and materialize the result with cooperative
-    /// cancellation. Firing <paramref name="cancellationToken"/> from another
-    /// thread aborts the in-flight query at its next poll point and throws
-    /// <see cref="OperationCanceledException"/>. A token that cannot be
-    /// cancelled (e.g. <see cref="CancellationToken.None"/>) behaves exactly
-    /// like the parameterless overload.
+    /// Execute the plan and return its record batches as a streaming reader.
+    /// Unlike <see cref="Collect(CancellationToken)"/>, the full result set is
+    /// not buffered in native memory: each call to
+    /// <see cref="ArrowBatchReader.ReadNextRecordBatchAsync"/> drives one batch
+    /// on the native side, so memory stays bounded to a single in-flight batch.
+    /// <para>
+    /// <paramref name="cancellationToken"/> is honoured while the stream is
+    /// being established: a token that is already cancelled aborts with
+    /// <see cref="OperationCanceledException"/> before any work runs. Once the
+    /// reader is returned, cancellation of subsequent batch reads is driven by
+    /// the token passed to
+    /// <see cref="ArrowBatchReader.ReadNextRecordBatchAsync"/>. A token that
+    /// cannot be cancelled (e.g. <see cref="CancellationToken.None"/>) behaves
+    /// exactly like the parameterless overload.
+    /// </para>
     /// </summary>
     public ArrowBatchReader ExecuteStream(CancellationToken cancellationToken)
     {

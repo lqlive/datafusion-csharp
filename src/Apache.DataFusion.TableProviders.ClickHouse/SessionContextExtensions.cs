@@ -34,21 +34,20 @@ public static class SessionContextExtensions
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(options);
-        if (string.IsNullOrWhiteSpace(options.ConnectionString))
-        {
-            throw new ArgumentException("Connection string cannot be null or whitespace.", nameof(options));
-        }
 
         if (options.BatchSize <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(options), options.BatchSize, "Batch size must be greater than zero.");
         }
 
-        foreach (ClickHouseTable table in FetchTables(options.ConnectionString, options.DatabaseName, options.IncludeViews))
+        Func<ClickHouseConnection> connectionFactory = options.ConnectionFactory ?? CreateConnectionFactory(options.ConnectionString, nameof(options));
+
+        foreach (ClickHouseTable table in FetchTables(connectionFactory, options.DatabaseName, options.IncludeViews))
         {
             RegisterSourceTable(context, options.SourceName, table.TableName, new ClickHouseStreamingTableProvider(new ClickHouseTableOptions
             {
                 ConnectionString = options.ConnectionString,
+                ConnectionFactory = connectionFactory,
                 DatabaseName = table.DatabaseName,
                 TableName = table.TableName,
                 BatchSize = options.BatchSize,
@@ -73,12 +72,26 @@ public static class SessionContextExtensions
         });
     }
 
+    private static Func<ClickHouseConnection> CreateConnectionFactory(string? connectionString, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new ArgumentException("Connection string cannot be null or whitespace when a connection factory is not provided.", parameterName);
+        }
+
+        // Share one ClickHouseDataSource across every table registered from this
+        // database so all scans reuse a single HTTP connection pool instead of
+        // re-establishing a TLS connection on each scan.
+        ClickHouseDataSource dataSource = new(connectionString);
+        return dataSource.CreateConnection;
+    }
+
     private static IEnumerable<ClickHouseTable> FetchTables(
-        string connectionString,
+        Func<ClickHouseConnection> connectionFactory,
         string? databaseName,
         bool includeViews)
     {
-        using ClickHouseConnection connection = new(connectionString);
+        using ClickHouseConnection connection = connectionFactory();
         connection.Open();
 
         using DbCommand command = connection.CreateCommand();

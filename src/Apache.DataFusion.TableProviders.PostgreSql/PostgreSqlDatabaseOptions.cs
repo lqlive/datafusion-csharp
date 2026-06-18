@@ -15,11 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+using Npgsql;
+
 namespace Apache.DataFusion.TableProviders.PostgreSql;
 
 public sealed class PostgreSqlDatabaseOptions
 {
-    public required string ConnectionString { get; init; }
+    public string? ConnectionString { get; init; }
+
+    public NpgsqlDataSource? DataSource { get; init; }
 
     public string? SourceName { get; init; }
 

@@ -33,21 +33,20 @@ public static class SessionContextExtensions
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(options);
-        if (string.IsNullOrWhiteSpace(options.ConnectionString))
-        {
-            throw new ArgumentException("Connection string cannot be null or whitespace.", nameof(options));
-        }
 
         if (options.BatchSize <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(options), options.BatchSize, "Batch size must be greater than zero.");
         }
 
-        foreach (MySqlTable table in FetchTables(options.ConnectionString, options.DatabaseName, options.IncludeViews))
+        MySqlDataSource dataSource = options.DataSource ?? CreateDataSource(options.ConnectionString, nameof(options));
+
+        foreach (MySqlTable table in FetchTables(dataSource, options.DatabaseName, options.IncludeViews))
         {
             RegisterSourceTable(context, options.SourceName, table.TableName, new MySqlStreamingTableProvider(new MySqlTableOptions
             {
                 ConnectionString = options.ConnectionString,
+                DataSource = dataSource,
                 DatabaseName = table.DatabaseName,
                 TableName = table.TableName,
                 BatchSize = options.BatchSize,
@@ -72,13 +71,22 @@ public static class SessionContextExtensions
         });
     }
 
+    private static MySqlDataSource CreateDataSource(string? connectionString, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new ArgumentException("Connection string cannot be null or whitespace when a data source is not provided.", parameterName);
+        }
+
+        return new MySqlDataSourceBuilder(connectionString).Build();
+    }
+
     private static IEnumerable<MySqlTable> FetchTables(
-        string connectionString,
+        MySqlDataSource dataSource,
         string? databaseName,
         bool includeViews)
     {
-        using MySqlConnection connection = new(connectionString);
-        connection.Open();
+        using MySqlConnection connection = dataSource.OpenConnection();
 
         using MySqlCommand command = connection.CreateCommand();
         command.CommandText = """

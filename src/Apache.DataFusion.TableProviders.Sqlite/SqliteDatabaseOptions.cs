@@ -15,11 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+using Microsoft.Data.Sqlite;
+
 namespace Apache.DataFusion.TableProviders.Sqlite;
 
 public sealed class SqliteDatabaseOptions
 {
-    public required string ConnectionString { get; init; }
+    public string? ConnectionString { get; init; }
+
+    public Func<SqliteConnection>? ConnectionFactory { get; init; }
 
     public string? SourceName { get; init; }
 

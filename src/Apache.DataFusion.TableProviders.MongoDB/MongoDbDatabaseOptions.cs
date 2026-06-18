@@ -15,11 +15,15 @@
 // specific language governing permissions and limitations
 // under the License.
 
+using MongoDB.Driver;
+
 namespace Apache.DataFusion.TableProviders.MongoDB;
 
 public sealed class MongoDbDatabaseOptions
 {
-    public required string ConnectionString { get; init; }
+    public string? ConnectionString { get; init; }
+
+    public IMongoClient? Client { get; init; }
 
     public string? SourceName { get; init; }
 

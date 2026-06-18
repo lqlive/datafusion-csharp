@@ -33,10 +33,6 @@ public static class SessionContextExtensions
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(options);
-        if (string.IsNullOrWhiteSpace(options.ConnectionString))
-        {
-            throw new ArgumentException("Connection string cannot be null or whitespace.", nameof(options));
-        }
 
         if (options.BatchSize <= 0)
         {
@@ -49,13 +45,14 @@ public static class SessionContextExtensions
         }
 
         string databaseName = ResolveDatabaseName(options.ConnectionString, options.DatabaseName);
-        MongoClient client = new(options.ConnectionString);
+        IMongoClient client = options.Client ?? CreateClient(options.ConnectionString, nameof(options));
         IMongoDatabase database = client.GetDatabase(databaseName);
         foreach (string collectionName in database.ListCollectionNames().ToEnumerable())
         {
             RegisterSourceTable(context, options.SourceName, collectionName, new MongoDbStreamingTableProvider(new MongoDbTableOptions
             {
                 ConnectionString = options.ConnectionString,
+                Client = client,
                 DatabaseName = databaseName,
                 CollectionName = collectionName,
                 BatchSize = options.BatchSize,
@@ -98,11 +95,26 @@ public static class SessionContextExtensions
         });
     }
 
-    private static string ResolveDatabaseName(string connectionString, string? databaseName)
+    private static IMongoClient CreateClient(string? connectionString, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new ArgumentException("Connection string cannot be null or whitespace when a MongoDB client is not provided.", parameterName);
+        }
+
+        return new MongoClient(connectionString);
+    }
+
+    private static string ResolveDatabaseName(string? connectionString, string? databaseName)
     {
         if (!string.IsNullOrWhiteSpace(databaseName))
         {
             return databaseName;
+        }
+
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new ArgumentException("Database name must be provided in MongoDB options when a connection string is not provided.", nameof(databaseName));
         }
 
         string? connectionDatabaseName = MongoUrl.Create(connectionString).DatabaseName;

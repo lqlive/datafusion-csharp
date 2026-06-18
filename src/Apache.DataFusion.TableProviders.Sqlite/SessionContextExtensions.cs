@@ -34,21 +34,20 @@ public static class SessionContextExtensions
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(options);
-        if (string.IsNullOrWhiteSpace(options.ConnectionString))
-        {
-            throw new ArgumentException("Connection string cannot be null or whitespace.", nameof(options));
-        }
 
         if (options.BatchSize <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(options), options.BatchSize, "Batch size must be greater than zero.");
         }
 
-        foreach (string tableName in FetchTables(options.ConnectionString, options.IncludeViews))
+        Func<SqliteConnection> connectionFactory = options.ConnectionFactory ?? CreateConnectionFactory(options.ConnectionString, nameof(options));
+
+        foreach (string tableName in FetchTables(connectionFactory, options.IncludeViews))
         {
             RegisterSourceTable(context, options.SourceName, tableName, new SqliteStreamingTableProvider(new SqliteTableOptions
             {
                 ConnectionString = options.ConnectionString,
+                ConnectionFactory = connectionFactory,
                 TableName = tableName,
                 BatchSize = options.BatchSize,
             }));
@@ -72,9 +71,19 @@ public static class SessionContextExtensions
         });
     }
 
-    private static IEnumerable<string> FetchTables(string connectionString, bool includeViews)
+    private static Func<SqliteConnection> CreateConnectionFactory(string? connectionString, string parameterName)
     {
-        using SqliteConnection connection = new(connectionString);
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new ArgumentException("Connection string cannot be null or whitespace when a connection factory is not provided.", parameterName);
+        }
+
+        return () => new SqliteConnection(connectionString);
+    }
+
+    private static IEnumerable<string> FetchTables(Func<SqliteConnection> connectionFactory, bool includeViews)
+    {
+        using SqliteConnection connection = connectionFactory();
         connection.Open();
 
         using DbCommand command = connection.CreateCommand();

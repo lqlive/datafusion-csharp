@@ -35,10 +35,6 @@ public static class SessionContextExtensions
     {
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(options);
-        if (string.IsNullOrWhiteSpace(options.ConnectionString))
-        {
-            throw new ArgumentException("Connection string cannot be null or whitespace.", nameof(options));
-        }
 
         if (options.BatchSize <= 0)
         {
@@ -54,12 +50,15 @@ public static class SessionContextExtensions
             throw new ArgumentException("At least one schema must be provided.", nameof(options));
         }
 
-        foreach (PostgreSqlTable table in FetchTables(options.ConnectionString, schemas, options.IncludeViews))
+        NpgsqlDataSource dataSource = options.DataSource ?? CreateDataSource(options.ConnectionString, nameof(options));
+
+        foreach (PostgreSqlTable table in FetchTables(dataSource, schemas, options.IncludeViews))
         {
             string registrationName = RegistrationName(table, schemas);
             RegisterSourceTable(context, options.SourceName, registrationName, new PostgreSqlStreamingTableProvider(new PostgreSqlTableOptions
             {
                 ConnectionString = options.ConnectionString,
+                DataSource = dataSource,
                 SchemaName = table.SchemaName,
                 TableName = table.TableName,
                 BatchSize = options.BatchSize,
@@ -84,13 +83,22 @@ public static class SessionContextExtensions
         });
     }
 
+    private static NpgsqlDataSource CreateDataSource(string? connectionString, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new ArgumentException("Connection string cannot be null or whitespace when a data source is not provided.", parameterName);
+        }
+
+        return NpgsqlDataSource.Create(connectionString);
+    }
+
     private static IEnumerable<PostgreSqlTable> FetchTables(
-        string connectionString,
+        NpgsqlDataSource dataSource,
         IReadOnlyCollection<string> schemas,
         bool includeViews)
     {
-        using NpgsqlConnection connection = new(connectionString);
-        connection.Open();
+        using NpgsqlConnection connection = dataSource.OpenConnection();
 
         using DbCommand command = connection.CreateCommand();
         command.CommandText = """

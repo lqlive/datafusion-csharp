@@ -26,7 +26,7 @@ namespace Apache.DataFusion.TableProviders.MySql;
 
 public sealed class MySqlStreamingTableProvider : StreamingTableProvider
 {
-    private readonly string connectionString;
+    private readonly MySqlDataSource dataSource;
     private readonly string sourceSql;
     private readonly int batchSize;
     private readonly ColumnPlan[] columns;
@@ -35,20 +35,15 @@ public sealed class MySqlStreamingTableProvider : StreamingTableProvider
     public MySqlStreamingTableProvider(MySqlTableOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        if (string.IsNullOrWhiteSpace(options.ConnectionString))
-        {
-            throw new ArgumentException("Connection string cannot be null or whitespace.", nameof(options));
-        }
-
         if (options.BatchSize <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(options), options.BatchSize, "Batch size must be greater than zero.");
         }
 
-        connectionString = options.ConnectionString;
+        dataSource = options.DataSource ?? CreateDataSource(options.ConnectionString, nameof(options));
         sourceSql = BuildSourceSql(options);
         batchSize = options.BatchSize;
-        columns = FetchColumns(connectionString, sourceSql);
+        columns = FetchColumns(dataSource, sourceSql);
         Schema = BuildSchema(columns);
     }
 
@@ -57,7 +52,7 @@ public sealed class MySqlStreamingTableProvider : StreamingTableProvider
     public override bool SupportsPushdown => true;
 
     public override IArrowArrayStream Scan() =>
-        new MySqlArrowArrayStream(connectionString, sourceSql, Schema, columns, batchSize);
+        new MySqlArrowArrayStream(dataSource, sourceSql, Schema, columns, batchSize);
 
     public override IArrowArrayStream Scan(StreamingTableScanRequest request)
     {
@@ -67,12 +62,22 @@ public sealed class MySqlStreamingTableProvider : StreamingTableProvider
         ColumnPlan[] projectedColumns = ProjectColumns(request);
         Schema projectedSchema = BuildSchema(projectedColumns);
         return new MySqlArrowArrayStream(
-            connectionString,
+            dataSource,
             pushedQuery.Sql,
             projectedSchema,
             projectedColumns,
             batchSize,
             pushedQuery.Parameters);
+    }
+
+    private static MySqlDataSource CreateDataSource(string? connectionString, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(connectionString))
+        {
+            throw new ArgumentException("Connection string cannot be null or whitespace when a data source is not provided.", parameterName);
+        }
+
+        return new MySqlDataSourceBuilder(connectionString).Build();
     }
 
     private static string BuildSourceSql(MySqlTableOptions options)
@@ -93,10 +98,9 @@ public sealed class MySqlStreamingTableProvider : StreamingTableProvider
             : $"{MySqlDialect.Instance.QuoteIdentifier(databaseName)}.{quotedTable}";
     }
 
-    private static ColumnPlan[] FetchColumns(string connectionString, string query)
+    private static ColumnPlan[] FetchColumns(MySqlDataSource dataSource, string query)
     {
-        using MySqlConnection connection = new(connectionString);
-        connection.Open();
+        using MySqlConnection connection = dataSource.OpenConnection();
 
         using DbCommand command = connection.CreateCommand();
         command.CommandText = query;

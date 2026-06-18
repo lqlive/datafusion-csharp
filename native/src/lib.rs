@@ -29,7 +29,7 @@ use std::os::raw::{c_char, c_int, c_uchar};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::{Arc, OnceLock};
 
-use ::arrow::array::{RecordBatch, RecordBatchIterator};
+use ::arrow::array::{RecordBatch, RecordBatchIterator, RecordBatchReader};
 use ::arrow::datatypes::SchemaRef;
 use ::arrow::error::ArrowError;
 use ::arrow::ffi_stream::FFI_ArrowArrayStream;
@@ -43,6 +43,7 @@ use datafusion::error::DataFusionError;
 use datafusion::execution::disk_manager::{DiskManagerBuilder, DiskManagerMode};
 use datafusion::execution::memory_pool::{MemoryPool, UnboundedMemoryPool};
 use datafusion::execution::runtime_env::RuntimeEnvBuilder;
+use datafusion::execution::SendableRecordBatchStream;
 use datafusion::logical_expr::{col, Expr, Partitioning, SortExpr};
 use datafusion::prelude::SessionConfig;
 use futures::StreamExt;
@@ -823,6 +824,52 @@ fn export_batches(
     Ok(())
 }
 
+/// Adapts a DataFusion `SendableRecordBatchStream` into a synchronous
+/// `RecordBatchReader` so it can be handed to an `FFI_ArrowArrayStream` and
+/// pulled lazily from the managed side. Each managed pull drives a single
+/// `stream.next()` on the shared Tokio runtime, so native memory stays bounded
+/// by one in-flight batch instead of the entire result set.
+struct BlockingStreamReader {
+    schema: SchemaRef,
+    stream: SendableRecordBatchStream,
+}
+
+impl Iterator for BlockingStreamReader {
+    type Item = Result<RecordBatch, ArrowError>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        runtime()
+            .block_on(self.stream.next())
+            .map(|result| result.map_err(|err| ArrowError::ExternalError(Box::new(err))))
+    }
+}
+
+impl RecordBatchReader for BlockingStreamReader {
+    fn schema(&self) -> SchemaRef {
+        Arc::clone(&self.schema)
+    }
+}
+
+/// Export a streaming `SendableRecordBatchStream` through the caller-provided
+/// Arrow C Data Interface pointer. Unlike `export_batches`, the result set is
+/// never collected up front: batches are produced one at a time as the managed
+/// reader advances, keeping native memory bounded to a single in-flight batch.
+fn export_stream(
+    out: *mut FFI_ArrowArrayStream,
+    schema: SchemaRef,
+    stream: SendableRecordBatchStream,
+) -> NativeResult<()> {
+    if out.is_null() {
+        return Err("output stream pointer is null".into());
+    }
+    let reader = BlockingStreamReader { schema, stream };
+    let ffi = FFI_ArrowArrayStream::new(Box::new(reader));
+    unsafe {
+        std::ptr::write(out, ffi);
+    }
+    Ok(())
+}
+
 #[no_mangle]
 pub extern "C" fn df_dataframe_collect_cdata(
     handle: *mut DataFrame,
@@ -848,15 +895,11 @@ pub extern "C" fn df_dataframe_execute_stream_cdata(
         let df = unsafe { *Box::from_raw(require_ptr(handle, "DataFrame handle")?) };
         let token = resolve_token(token_handle);
         let schema: SchemaRef = Arc::new(df.schema().as_arrow().clone());
-        let batches = runtime().block_on(run_cancellable(&token, async move {
-            let mut stream = df.execute_stream().await?;
-            let mut batches = Vec::new();
-            while let Some(batch) = stream.next().await {
-                batches.push(batch?);
-            }
-            Ok::<_, DataFusionError>(batches)
-        }))?;
-        export_batches(out, schema, batches)
+        // Only establish the stream here (honouring a pre-cancelled token); the
+        // batches themselves are pulled lazily by the managed reader so the full
+        // result set is never buffered in native memory at once.
+        let stream = runtime().block_on(run_cancellable(&token, df.execute_stream()))?;
+        export_stream(out, schema, stream)
     })
 }
 
