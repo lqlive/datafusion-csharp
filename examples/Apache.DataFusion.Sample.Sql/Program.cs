@@ -20,11 +20,11 @@ using Apache.DataFusion;
 string csvPath = WritePeopleCsv();
 
 using SessionContext context = new();
-context.RegisterCsv("people", csvPath, new CsvReadOptions { HasHeader = true });
+context.RegisterCsv("files", "people", csvPath, new CsvReadOptions { HasHeader = true });
 
 Console.WriteLine("People aged 30 or older:");
 using DataFrame df = context.Sql(
-    "SELECT id, name, age, city FROM people WHERE age >= 30 ORDER BY id");
+    "SELECT id, name, age, city FROM files.people WHERE age >= 30 ORDER BY id");
 df.Show();
 Console.WriteLine($"Match count: {df.Count()}");
 

@@ -28,7 +28,7 @@ context.RegisterSqlite(new SqliteDatabaseOptions
     ConnectionString = sqliteConnectionString,
     SourceName = "orders",
 });
-context.RegisterCsv("customer_regions", customerRegionsPath, new CsvReadOptions { HasHeader = true });
+context.RegisterCsv("files", "customer_regions", customerRegionsPath, new CsvReadOptions { HasHeader = true });
 
 Console.WriteLine("Federated query joining SQLite orders and customers with CSV customer regions:");
 using DataFrame df = context.Sql("""
@@ -36,7 +36,7 @@ using DataFrame df = context.Sql("""
     FROM orders.datafusion_orders AS o
     INNER JOIN orders.datafusion_customers AS c
         ON o.customer = c.customer
-    INNER JOIN customer_regions AS r
+    INNER JOIN files.customer_regions AS r
         ON o.customer = r.customer
     GROUP BY r.region, c.loyalty_tier, o.customer
     ORDER BY r.region, c.loyalty_tier, o.customer

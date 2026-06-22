@@ -35,11 +35,11 @@ Console.WriteLine($"Parquet: {parquetPath}");
 Console.WriteLine($"Iterations: {iterations}");
 
 using SessionContext context = new();
-context.RegisterParquet("benchmark", parquetPath);
+context.RegisterParquet("files", "benchmark", parquetPath);
 
 Measure("count", () =>
 {
-    using DataFrame df = context.Sql("SELECT * FROM benchmark");
+    using DataFrame df = context.Sql("SELECT * FROM files.benchmark");
     ulong rows = df.Count();
     Console.WriteLine($"  rows={rows:N0}");
 });
@@ -51,7 +51,7 @@ SELECT
   SUM(quantity) AS total_quantity,
   AVG(amount) AS average_amount,
   SUM(amount) AS total_amount
-FROM benchmark
+FROM files.benchmark
 WHERE is_active
 GROUP BY group_id
 ORDER BY total_amount DESC

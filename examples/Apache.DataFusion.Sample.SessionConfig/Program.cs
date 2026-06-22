@@ -26,8 +26,8 @@ using SessionContext context = SessionContext.CreateBuilder()
     .InformationSchema(true)
     .Build();
 
-context.RegisterCsv("people", csvPath, new CsvReadOptions { HasHeader = true });
-using (DataFrame df = context.Sql("SELECT * FROM people"))
+context.RegisterCsv("files", "people", csvPath, new CsvReadOptions { HasHeader = true });
+using (DataFrame df = context.Sql("SELECT * FROM files.people"))
 {
     df.Show();
 }

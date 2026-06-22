@@ -68,9 +68,59 @@ public sealed class SessionContextTests
         }
 
         using SessionContext readerContext = new();
-        readerContext.RegisterParquet("items", directory.Path);
-        using DataFrame dataFrame = readerContext.Sql("SELECT * FROM items");
+        readerContext.RegisterParquet("files", "items", directory.Path);
+        using DataFrame dataFrame = readerContext.Sql("SELECT * FROM files.items");
 
         Assert.Equal(2UL, dataFrame.Count());
+    }
+
+    [Fact]
+    public void ReadCsvRegistersNameForSubsequentQueries()
+    {
+        using TempTestDirectory directory = new();
+        string primaryPath = directory.Child("primary.csv");
+        string secondaryPath = directory.Child("secondary.csv");
+        File.WriteAllText(
+            primaryPath,
+            """
+            id,name
+            1,first
+            2,second
+            """);
+        File.WriteAllText(
+            secondaryPath,
+            """
+            id,name
+            3,third
+            """);
+
+        using SessionContext context = new();
+        using DataFrame dataFrame = context.ReadCsv("primary_source", "items", primaryPath, new CsvReadOptions { HasHeader = true });
+        using DataFrame secondary = context.ReadCsv("secondary_source", "items", secondaryPath, new CsvReadOptions { HasHeader = true });
+        using DataFrame named = context.Sql("SELECT * FROM primary_source.items WHERE id = 2");
+
+        Assert.Equal(2UL, dataFrame.Count());
+        Assert.Equal(1UL, secondary.Count());
+        Assert.Equal(1UL, named.Count());
+    }
+
+    [Fact]
+    public void ReadJsonRegistersNameForSubsequentQueries()
+    {
+        using TempTestDirectory directory = new();
+        string path = directory.Child("items.json");
+        File.WriteAllText(
+            path,
+            """
+            {"id":1,"name":"first"}
+            {"id":2,"name":"second"}
+            """);
+
+        using SessionContext context = new();
+        using DataFrame dataFrame = context.ReadJson("files", "json_items", path);
+        using DataFrame named = context.Sql("SELECT * FROM files.json_items WHERE id = 2");
+
+        Assert.Equal(2UL, dataFrame.Count());
+        Assert.Equal(1UL, named.Count());
     }
 }

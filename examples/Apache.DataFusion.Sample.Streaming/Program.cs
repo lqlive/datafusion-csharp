@@ -21,9 +21,9 @@ using Apache.DataFusion;
 string csvPath = WritePeopleCsv();
 
 using SessionContext context = new();
-context.RegisterCsv("people", csvPath, new CsvReadOptions { HasHeader = true });
+context.RegisterCsv("files", "people", csvPath, new CsvReadOptions { HasHeader = true });
 
-using DataFrame df = context.Sql("SELECT id, name, age FROM people ORDER BY id");
+using DataFrame df = context.Sql("SELECT id, name, age FROM files.people ORDER BY id");
 
 // Stream Arrow record batches and read typed column values.
 using ArrowBatchReader reader = df.ExecuteStream();

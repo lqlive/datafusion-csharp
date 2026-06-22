@@ -33,15 +33,17 @@ use ::arrow::array::{RecordBatch, RecordBatchIterator, RecordBatchReader};
 use ::arrow::datatypes::SchemaRef;
 use ::arrow::error::ArrowError;
 use ::arrow::ffi_stream::FFI_ArrowArrayStream;
+use datafusion::catalog::MemorySchemaProvider;
 use datafusion::common::config::{CsvOptions, JsonOptions};
 use datafusion::common::parsers::CompressionTypeVariant;
-use datafusion::common::{JoinType, UnnestOptions};
+use datafusion::common::{JoinType, TableReference, UnnestOptions};
 use datafusion::config::TableParquetOptions;
 use datafusion::dataframe::{DataFrame, DataFrameWriteOptions};
 use datafusion::datasource::file_format::file_compression_type::FileCompressionType;
 use datafusion::error::DataFusionError;
 use datafusion::execution::disk_manager::{DiskManagerBuilder, DiskManagerMode};
 use datafusion::execution::memory_pool::{MemoryPool, UnboundedMemoryPool};
+use datafusion::execution::options::ReadOptions;
 use datafusion::execution::runtime_env::RuntimeEnvBuilder;
 use datafusion::execution::SendableRecordBatchStream;
 use datafusion::logical_expr::{col, Expr, Partitioning, SortExpr};
@@ -591,7 +593,8 @@ pub extern "C" fn df_session_context_runtime_stats(
 #[no_mangle]
 pub extern "C" fn df_session_context_register_parquet(
     handle: *mut datafusion::prelude::SessionContext,
-    name: *const c_char,
+    schema_name: *const c_char,
+    table_name: *const c_char,
     path: *const c_char,
     options_ptr: *const u8,
     options_len: usize,
@@ -600,10 +603,16 @@ pub extern "C" fn df_session_context_register_parquet(
 ) -> c_int {
     take_result(|| {
         let ctx = unsafe { &*require_ptr(handle, "SessionContext handle")? };
-        let name = cstr(name, "name")?;
+        let schema_name = cstr(schema_name, "schema_name")?;
+        let table_name = cstr(table_name, "table_name")?;
         let path = cstr(path, "path")?;
         let options = parquet_options(options_ptr, options_len, schema_ptr, schema_len)?;
-        runtime().block_on(ctx.register_parquet(&name, &path, options))?;
+        register_default_schema(ctx, &schema_name)?;
+        runtime().block_on(ctx.register_parquet(
+            TableReference::partial(schema_name, table_name),
+            &path,
+            options,
+        ))?;
         Ok(())
     })
 }
@@ -611,6 +620,8 @@ pub extern "C" fn df_session_context_register_parquet(
 #[no_mangle]
 pub extern "C" fn df_session_context_read_parquet(
     handle: *mut datafusion::prelude::SessionContext,
+    schema_name: *const c_char,
+    table_name: *const c_char,
     path: *const c_char,
     options_ptr: *const u8,
     options_len: usize,
@@ -620,9 +631,14 @@ pub extern "C" fn df_session_context_read_parquet(
 ) -> c_int {
     take_result(|| {
         let ctx = unsafe { &*require_ptr(handle, "SessionContext handle")? };
+        let schema_name = cstr(schema_name, "schema_name")?;
+        let table_name = cstr(table_name, "table_name")?;
         let path = cstr(path, "path")?;
         let options = parquet_options(options_ptr, options_len, schema_ptr, schema_len)?;
-        let df = runtime().block_on(ctx.read_parquet(path, options))?;
+        register_default_schema(ctx, &schema_name)?;
+        let table_ref = TableReference::partial(schema_name, table_name);
+        runtime().block_on(ctx.register_parquet(table_ref.clone(), &path, options))?;
+        let df = runtime().block_on(ctx.table(table_ref))?;
         write_handle(out, df)
     })
 }
@@ -632,7 +648,8 @@ macro_rules! read_register_format {
         #[no_mangle]
         pub extern "C" fn $register_fn(
             handle: *mut datafusion::prelude::SessionContext,
-            name: *const c_char,
+            schema_name: *const c_char,
+            table_name: *const c_char,
             path: *const c_char,
             options_ptr: *const u8,
             options_len: usize,
@@ -641,10 +658,16 @@ macro_rules! read_register_format {
         ) -> c_int {
             take_result(|| {
                 let ctx = unsafe { &*require_ptr(handle, "SessionContext handle")? };
-                let name = cstr(name, "name")?;
+                let schema_name = cstr(schema_name, "schema_name")?;
+                let table_name = cstr(table_name, "table_name")?;
                 let path = cstr(path, "path")?;
                 let options = $options_fn(options_ptr, options_len, schema_ptr, schema_len)?;
-                runtime().block_on(ctx.$ctx_register(&name, &path, options))?;
+                register_default_schema(ctx, &schema_name)?;
+                runtime().block_on(ctx.$ctx_register(
+                    TableReference::partial(schema_name, table_name),
+                    &path,
+                    options,
+                ))?;
                 Ok(())
             })
         }
@@ -652,6 +675,8 @@ macro_rules! read_register_format {
         #[no_mangle]
         pub extern "C" fn $read_fn(
             handle: *mut datafusion::prelude::SessionContext,
+            schema_name: *const c_char,
+            table_name: *const c_char,
             path: *const c_char,
             options_ptr: *const u8,
             options_len: usize,
@@ -661,9 +686,14 @@ macro_rules! read_register_format {
         ) -> c_int {
             take_result(|| {
                 let ctx = unsafe { &*require_ptr(handle, "SessionContext handle")? };
+                let schema_name = cstr(schema_name, "schema_name")?;
+                let table_name = cstr(table_name, "table_name")?;
                 let path = cstr(path, "path")?;
                 let options = $options_fn(options_ptr, options_len, schema_ptr, schema_len)?;
-                let df = runtime().block_on(ctx.$ctx_read(path, options))?;
+                register_default_schema(ctx, &schema_name)?;
+                let table_ref = TableReference::partial(schema_name, table_name);
+                runtime().block_on(ctx.$ctx_register(table_ref.clone(), &path, options))?;
+                let df = runtime().block_on(ctx.table(table_ref))?;
                 write_handle(out, df)
             })
         }
@@ -685,13 +715,6 @@ read_register_format!(
     read_json
 );
 read_register_format!(
-    df_session_context_register_arrow,
-    df_session_context_read_arrow,
-    arrow_options,
-    register_arrow,
-    read_arrow
-);
-read_register_format!(
     df_session_context_register_avro,
     df_session_context_read_avro,
     avro_options,
@@ -700,9 +723,10 @@ read_register_format!(
 );
 
 #[no_mangle]
-pub extern "C" fn df_session_context_register_excel(
+pub extern "C" fn df_session_context_register_arrow(
     handle: *mut datafusion::prelude::SessionContext,
-    name: *const c_char,
+    schema_name: *const c_char,
+    table_name: *const c_char,
     path: *const c_char,
     options_ptr: *const u8,
     options_len: usize,
@@ -711,19 +735,26 @@ pub extern "C" fn df_session_context_register_excel(
 ) -> c_int {
     take_result(|| {
         let ctx = unsafe { &*require_ptr(handle, "SessionContext handle")? };
-        let name = cstr(name, "name")?;
+        let schema_name = cstr(schema_name, "schema_name")?;
+        let table_name = cstr(table_name, "table_name")?;
         let path = cstr(path, "path")?;
-        let (schema, batches) =
-            excel::read_excel(&path, options_ptr, options_len, schema_ptr, schema_len)?;
-        let table = datafusion::datasource::MemTable::try_new(schema, vec![batches])?;
-        ctx.register_table(name, Arc::new(table))?;
+        let options = arrow_options(options_ptr, options_len, schema_ptr, schema_len)?;
+        register_default_schema(ctx, &schema_name)?;
+        runtime().block_on(register_arrow_in_schema(
+            ctx,
+            TableReference::partial(schema_name, table_name),
+            &path,
+            options,
+        ))?;
         Ok(())
     })
 }
 
 #[no_mangle]
-pub extern "C" fn df_session_context_read_excel(
+pub extern "C" fn df_session_context_read_arrow(
     handle: *mut datafusion::prelude::SessionContext,
+    schema_name: *const c_char,
+    table_name: *const c_char,
     path: *const c_char,
     options_ptr: *const u8,
     options_len: usize,
@@ -733,12 +764,111 @@ pub extern "C" fn df_session_context_read_excel(
 ) -> c_int {
     take_result(|| {
         let ctx = unsafe { &*require_ptr(handle, "SessionContext handle")? };
+        let schema_name = cstr(schema_name, "schema_name")?;
+        let table_name = cstr(table_name, "table_name")?;
+        let path = cstr(path, "path")?;
+        let options = arrow_options(options_ptr, options_len, schema_ptr, schema_len)?;
+        register_default_schema(ctx, &schema_name)?;
+        let table_ref = TableReference::partial(schema_name, table_name);
+        runtime().block_on(register_arrow_in_schema(
+            ctx,
+            table_ref.clone(),
+            &path,
+            options,
+        ))?;
+        let df = runtime().block_on(ctx.table(table_ref))?;
+        write_handle(out, df)
+    })
+}
+
+async fn register_arrow_in_schema(
+    ctx: &datafusion::prelude::SessionContext,
+    table_ref: TableReference,
+    path: &str,
+    options: datafusion::execution::options::ArrowReadOptions<'_>,
+) -> NativeResult<()> {
+    let listing_options =
+        options.to_listing_options(&ctx.copied_config(), ctx.copied_table_options());
+    ctx.register_listing_table(
+        table_ref,
+        path,
+        listing_options,
+        options.schema.map(|schema| Arc::new(schema.to_owned())),
+        None,
+    )
+    .await?;
+    Ok(())
+}
+
+#[no_mangle]
+pub extern "C" fn df_session_context_register_excel(
+    handle: *mut datafusion::prelude::SessionContext,
+    schema_name: *const c_char,
+    table_name: *const c_char,
+    path: *const c_char,
+    options_ptr: *const u8,
+    options_len: usize,
+    schema_ptr: *const u8,
+    schema_len: usize,
+) -> c_int {
+    take_result(|| {
+        let ctx = unsafe { &*require_ptr(handle, "SessionContext handle")? };
+        let schema_name = cstr(schema_name, "schema_name")?;
+        let table_name = cstr(table_name, "table_name")?;
         let path = cstr(path, "path")?;
         let (schema, batches) =
             excel::read_excel(&path, options_ptr, options_len, schema_ptr, schema_len)?;
         let table = datafusion::datasource::MemTable::try_new(schema, vec![batches])?;
-        write_handle(out, ctx.read_table(Arc::new(table))?)
+        register_default_schema(ctx, &schema_name)?;
+        ctx.register_table(
+            TableReference::partial(schema_name, table_name),
+            Arc::new(table),
+        )?;
+        Ok(())
     })
+}
+
+#[no_mangle]
+pub extern "C" fn df_session_context_read_excel(
+    handle: *mut datafusion::prelude::SessionContext,
+    schema_name: *const c_char,
+    table_name: *const c_char,
+    path: *const c_char,
+    options_ptr: *const u8,
+    options_len: usize,
+    schema_ptr: *const u8,
+    schema_len: usize,
+    out: *mut *mut DataFrame,
+) -> c_int {
+    take_result(|| {
+        let ctx = unsafe { &*require_ptr(handle, "SessionContext handle")? };
+        let schema_name = cstr(schema_name, "schema_name")?;
+        let table_name = cstr(table_name, "table_name")?;
+        let path = cstr(path, "path")?;
+        let (schema, batches) =
+            excel::read_excel(&path, options_ptr, options_len, schema_ptr, schema_len)?;
+        let table = datafusion::datasource::MemTable::try_new(schema, vec![batches])?;
+        register_default_schema(ctx, &schema_name)?;
+        let table_ref = TableReference::partial(schema_name, table_name);
+        ctx.register_table(table_ref.clone(), Arc::new(table))?;
+        let df = runtime().block_on(ctx.table(table_ref))?;
+        write_handle(out, df)
+    })
+}
+
+fn register_default_schema(
+    ctx: &datafusion::prelude::SessionContext,
+    schema_name: &str,
+) -> NativeResult<()> {
+    let state = ctx.state();
+    let default_catalog = state.config().options().catalog.default_catalog.as_str();
+    let catalog = ctx
+        .catalog(default_catalog)
+        .ok_or_else(|| format!("failed to resolve catalog: {default_catalog}"))?;
+    if catalog.schema(schema_name).is_none() {
+        catalog.register_schema(schema_name, Arc::new(MemorySchemaProvider::new()))?;
+    }
+    Ok(())
 }
 
 #[no_mangle]

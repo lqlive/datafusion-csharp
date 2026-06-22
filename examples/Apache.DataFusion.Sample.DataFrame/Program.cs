@@ -23,7 +23,7 @@ using SessionContext context = new();
 
 // Build a query with the fluent DataFrame API instead of SQL.
 using DataFrame df = context
-    .ReadCsv(csvPath, new CsvReadOptions { HasHeader = true })
+    .ReadCsv("files", "people", csvPath, new CsvReadOptions { HasHeader = true })
     .Filter("age >= 30")
     .Select("name", "age", "city")
     .WithColumn("age_in_5_years", "age + 5")

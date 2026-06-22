@@ -23,11 +23,11 @@ string xlsxPath = WritePeopleWorkbook();
 
 using SessionContext context = new();
 
-context.RegisterExcel("people", xlsxPath, new ExcelReadOptions { HasHeader = true });
+context.RegisterExcel("files", "people", xlsxPath, new ExcelReadOptions { HasHeader = true });
 
 Console.WriteLine("People earning more than 1000, highest first:");
 using DataFrame df = context.Sql(
-    """SELECT "Id", "Name", "Amount" FROM people WHERE "Amount" > 1000 ORDER BY "Amount" DESC""");
+    """SELECT "Id", "Name", "Amount" FROM files.people WHERE "Amount" > 1000 ORDER BY "Amount" DESC""");
 df.Show();
 Console.WriteLine($"Match count: {df.Count()}");
 

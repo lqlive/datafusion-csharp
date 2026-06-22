@@ -22,38 +22,38 @@ namespace Apache.DataFusion.Interop;
 internal static partial class NativeMethods
 {
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_register_parquet(IntPtr handle, IntPtr name, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen);
+    internal static extern int df_session_context_register_parquet(IntPtr handle, IntPtr schemaName, IntPtr tableName, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_read_parquet(IntPtr handle, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);
+    internal static extern int df_session_context_read_parquet(IntPtr handle, IntPtr schemaName, IntPtr tableName, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_register_csv(IntPtr handle, IntPtr name, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen);
+    internal static extern int df_session_context_register_csv(IntPtr handle, IntPtr schemaName, IntPtr tableName, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_read_csv(IntPtr handle, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);
+    internal static extern int df_session_context_read_csv(IntPtr handle, IntPtr schemaName, IntPtr tableName, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_register_json(IntPtr handle, IntPtr name, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen);
+    internal static extern int df_session_context_register_json(IntPtr handle, IntPtr schemaName, IntPtr tableName, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_read_json(IntPtr handle, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);
+    internal static extern int df_session_context_read_json(IntPtr handle, IntPtr schemaName, IntPtr tableName, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_register_arrow(IntPtr handle, IntPtr name, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen);
+    internal static extern int df_session_context_register_arrow(IntPtr handle, IntPtr schemaName, IntPtr tableName, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_read_arrow(IntPtr handle, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);
+    internal static extern int df_session_context_read_arrow(IntPtr handle, IntPtr schemaName, IntPtr tableName, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_register_avro(IntPtr handle, IntPtr name, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen);
+    internal static extern int df_session_context_register_avro(IntPtr handle, IntPtr schemaName, IntPtr tableName, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_read_avro(IntPtr handle, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);
+    internal static extern int df_session_context_read_avro(IntPtr handle, IntPtr schemaName, IntPtr tableName, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_register_excel(IntPtr handle, IntPtr name, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen);
+    internal static extern int df_session_context_register_excel(IntPtr handle, IntPtr schemaName, IntPtr tableName, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen);
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
-    internal static extern int df_session_context_read_excel(IntPtr handle, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);
+    internal static extern int df_session_context_read_excel(IntPtr handle, IntPtr schemaName, IntPtr tableName, IntPtr path, IntPtr optionsPtr, nuint optionsLen, IntPtr schemaPtr, nuint schemaLen, out IntPtr dataFrame);
 }

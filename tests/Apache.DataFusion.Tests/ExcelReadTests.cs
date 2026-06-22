@@ -33,13 +33,13 @@ public class ExcelReadTests
         try
         {
             using SessionContext context = new();
-            context.RegisterExcel("people", path, new ExcelReadOptions { HasHeader = true });
+            context.RegisterExcel("files", "people", path, new ExcelReadOptions { HasHeader = true });
 
-            using DataFrame all = context.Sql("SELECT * FROM people");
+            using DataFrame all = context.Sql("SELECT * FROM files.people");
             Assert.Equal(3UL, all.Count());
 
             using DataFrame filtered =
-                context.Sql("""SELECT "Id" FROM people WHERE "Amount" > 80 AND "Name" = 'Bob'""");
+                context.Sql("""SELECT "Id" FROM files.people WHERE "Amount" > 80 AND "Name" = 'Bob'""");
             Assert.Equal(1UL, filtered.Count());
         }
         finally
@@ -60,8 +60,10 @@ public class ExcelReadTests
         try
         {
             using SessionContext context = new();
-            using DataFrame df = context.ReadExcel(path, new ExcelReadOptions { HasHeader = true });
+            using DataFrame df = context.ReadExcel("files", "workbook", path, new ExcelReadOptions { HasHeader = true });
+            using DataFrame named = context.Sql("""SELECT * FROM files.workbook WHERE "Id" = 2""");
             Assert.Equal(2UL, df.Count());
+            Assert.Equal(1UL, named.Count());
         }
         finally
         {

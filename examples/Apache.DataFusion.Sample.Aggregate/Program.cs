@@ -20,11 +20,11 @@ using Apache.DataFusion;
 string jsonPath = WriteEventsJson();
 
 using SessionContext context = new();
-context.RegisterJson("events", jsonPath);
+context.RegisterJson("files", "events", jsonPath);
 
 Console.WriteLine("Event counts and totals by type:");
 using DataFrame df = context.Sql(
-    "SELECT type, COUNT(*) AS n, SUM(value) AS total FROM events GROUP BY type ORDER BY total DESC");
+    "SELECT type, COUNT(*) AS n, SUM(value) AS total FROM files.events GROUP BY type ORDER BY total DESC");
 df.Show();
 
 static string WriteEventsJson()

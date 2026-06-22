@@ -21,8 +21,8 @@ string peoplePath = WritePeopleCsv();
 string ordersPath = WriteOrdersCsv();
 
 using SessionContext context = new();
-using DataFrame people = context.ReadCsv(peoplePath, new CsvReadOptions { HasHeader = true });
-using DataFrame orders = context.ReadCsv(ordersPath, new CsvReadOptions { HasHeader = true });
+using DataFrame people = context.ReadCsv("files", "people", peoplePath, new CsvReadOptions { HasHeader = true });
+using DataFrame orders = context.ReadCsv("files", "orders", ordersPath, new CsvReadOptions { HasHeader = true });
 
 Console.WriteLine("Inner join of people and their orders:");
 using DataFrame joined = people.Join(orders, JoinType.Inner, ["id"], ["person_id"]);
