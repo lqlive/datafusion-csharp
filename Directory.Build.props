@@ -18,4 +18,12 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- SQLitePCLRaw.lib.e_sqlite3 2.1.11 is pulled transitively by Microsoft.Data.Sqlite.
+         It is the latest 2.x release and has no patched replacement in that line, so
+         suppress only this restore-time audit advisory until the SQLite provider can
+         move to the SQLitePCLRaw 3.x/SourceGear.sqlite3 packaging model. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-2m69-gcr7-jv3q" />
+  </ItemGroup>
 </Project>
