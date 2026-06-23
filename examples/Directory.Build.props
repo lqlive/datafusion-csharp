@@ -2,6 +2,13 @@
 
   <!-- Inherit the repository-wide settings (Version, TargetFramework, analyzers, etc.). -->
 	<Import Project="..\Directory.Build.props" />
+
+  <!-- Samples reference the net10.0 TableProviders, so they all target net10.0
+       (overriding the repo-wide net8.0 default inherited above). Keep this in one
+       place instead of repeating <TargetFramework> in every sample project. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
 	
   <!-- The sample apps run against the repo's locally built native library (not the published
        NuGet package and without touching the distribution packaging projects). Build it first
